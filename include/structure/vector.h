@@ -20,7 +20,9 @@ void vector_init(Vector* vec, size_t data_size, size_t capacity);
 
 void vector_deinit(Vector* vec);
 
-void vector_push_back(Vector* vec, void* data);
+void vector_reserve(Vector* vec, size_t capacity);
+
+void vector_push_back(Vector* vec, const void* data);
 
 void* vector_allocate(Vector* vec);
 
@@ -37,6 +39,8 @@ void vector_destroy(Vector* vec);
 Iterator vector_iter(const Vector* vec);
 
 void vector_clear(Vector* vec);
+
+size_t vector_size(const Vector* vec);
 
 char* vector_iter_next(Iterator* iter);
 

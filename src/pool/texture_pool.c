@@ -19,9 +19,9 @@ void texture_pool_init() {
 }
 
 
-Texture2D texture_pool_load(const char* filepath, const char* key) {
-    MapSearchResult it = map_search(pool, key);
-    Texture2D texture;
+Texture2D texture_pool_load(const char* filepath) {
+    MapSearchResult it = map_search(pool, filepath);
+    Texture2D texture = {0};
     if (it.exists) {
         texture = *((Texture2D*) it.data);
     } else {
@@ -32,23 +32,18 @@ Texture2D texture_pool_load(const char* filepath, const char* key) {
 }
 
 
-Texture2D texture_pool_get(const char* key) {
-    Texture2D texture = {0};
-    
-    void* data = map_at(pool, key);
-    if (data != NULL) {
-        texture = *((Texture2D*) data);
-    }
-    
-    return texture;
+Texture2D texture_pool_get(const char* filepath) {
+    Texture2D* texture = (Texture2D*) map_at(pool, filepath);
+    if (texture != NULL) { return *texture; }
+    return (Texture2D){0};
 }
 
 
-int texture_pool_unload(const char *key) {
-    Texture2D* texture = (Texture2D*) map_at(pool, key);
+int texture_pool_unload(const char* filepath) {
+    Texture2D* texture = (Texture2D*) map_at(pool, filepath);
     if (texture != NULL) {
         UnloadTexture(*texture);
-        map_erase(pool, key);
+        map_erase(pool, filepath);
         return 1;
     }    
     return 0;
@@ -56,18 +51,12 @@ int texture_pool_unload(const char *key) {
 
 
 void texture_pool_clear() {
-    Vector* vec = NULL;
-    Iterator vec_iter = vector_iter(pool->buckets);
-    while ((vec = (Vector*) vector_iter_next(&vec_iter)) != NULL) {
-        char* node = NULL;
-        Iterator node_iter = vector_iter(vec);
-        while ((node = vector_iter_next(&node_iter)) != NULL) {
-            Texture texture = *((Texture2D*) (node + pool->key_size));
-            UnloadTexture(texture);
-        }
-        vector_clear(vec);
+    MapIterator iter = map_iter(pool);
+    Texture2D* it = NULL;
+    while ((it = (Texture2D*) map_iter_next(&iter)) != NULL) {
+        UnloadTexture(*it);
     }
-    pool->size = 0;
+    map_clear(pool);
 }
 
 

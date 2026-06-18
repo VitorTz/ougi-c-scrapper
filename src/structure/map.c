@@ -4,6 +4,11 @@
 #include <stdlib.h>
 
 
+#ifndef CMP_NODE_HASH
+// Checks if the node value inside the provided struct matches its hashed_key
+#define CMP_NODE_HASH(item) (*((size_t*)(item).node) == (item).hashed_key)
+#endif
+
 typedef struct MapAux {
     size_t hashed_key;
     Vector* bucket;
@@ -65,7 +70,7 @@ void* map_allocate(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
 
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (*((size_t*) aux.node) == aux.hashed_key) {
+        if (CMP_NODE_HASH(aux)) {
             return (void*) (aux.node + map->key_size);
         }
     }
@@ -81,7 +86,7 @@ void* map_at(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
 
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (*((size_t*) aux.node) == aux.hashed_key) {
+        if (CMP_NODE_HASH(aux)) {
             return (void*) (aux.node + map->key_size);
         }
     }
@@ -92,7 +97,7 @@ void* map_at(Map* map, const void* key) {
 MapSearchResult map_search(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (*((size_t*) aux.node) == aux.hashed_key) {
+        if (CMP_NODE_HASH(aux)) {
             return (MapSearchResult){
                 .data = (void*) (aux.node + map->key_size),
                 .exists = 1
@@ -114,7 +119,7 @@ void map_upsert(Map* map, const void* key, const void* value) {
     MapAux aux = get_map_aux(map, key);
 
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (*((size_t*) aux.node) == aux.hashed_key) {
+        if (CMP_NODE_HASH(aux)) {
             memcpy(aux.node + map->key_size, value, map->value_size);
             return;
         }
@@ -130,7 +135,7 @@ void map_erase(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
     size_t i = 0;
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (*((size_t*) aux.node) == aux.hashed_key) {
+        if (CMP_NODE_HASH(aux)) {
             vector_erase(aux.bucket, i);
             map->size--;
             return;
@@ -142,11 +147,42 @@ void map_erase(Map* map, const void* key) {
 
 void map_clear(Map* map) {
     if (map == NULL) { return; }
-    map->size = 0;
-    
     Iterator iter = vector_iter(map->buckets);
     Vector* it = NULL;
     while ((it = (Vector*) vector_iter_next(&iter)) != NULL) {
         vector_clear(it);
     }
+    map->size = 0;
+}
+
+
+MapIterator map_iter(const Map* map) {
+    const Vector* bucket = map->nbuckets > 0 ? (Vector*) vector_at(map->buckets, 0) : NULL;
+    return (MapIterator){
+        .map = map,
+        .vec_iter = vector_iter(bucket),
+        .vec_index = 0
+    };
+}
+
+
+void* map_iter_next(MapIterator* iter) {
+    if (iter->vec_index >= iter->map->nbuckets) {
+        return NULL;
+    }
+    char* data = vector_iter_next(&iter->vec_iter);
+    if (data != NULL) {
+        return data + iter->map->key_size;
+    }
+    if (iter->vec_index + 1 < iter->map->nbuckets) {
+        iter->vec_index++;
+        iter->vec_iter = vector_iter(vector_at(iter->map->buckets, iter->vec_index));
+        return map_iter_next(iter);
+    }
+    return NULL;
+}
+
+
+size_t map_size(const Map *map) {
+    return map->size;
 }

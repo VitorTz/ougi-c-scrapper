@@ -27,6 +27,13 @@ Map* map_create(
 );
 
 
+typedef struct MapIterator {
+    const Map* map;
+    Iterator vec_iter;
+    size_t vec_index;
+} MapIterator;
+
+
 typedef struct MapSearchResult {
     void* data;
     int exists;
@@ -46,5 +53,11 @@ void map_erase(Map* map, const void* key);
 void map_clear(Map* map);
 
 MapSearchResult map_search(Map* map, const void* key);
+
+MapIterator map_iter(const Map* map);
+
+void* map_iter_next(MapIterator* iter);
+
+size_t map_size(const Map* map);
 
 #endif

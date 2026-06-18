@@ -1,114 +1,112 @@
 # ============================================================
-#  Makefile - Projeto C + raylib
-#  - Clona e compila a raylib automaticamente (vendorizada em vendor/raylib)
-#  - Busca .c recursivamente em src/ e .h recursivamente em include/
-#  - Requer GNU Make (gmake) e git
+#  Makefile - C Project + raylib
+#  - Automatically clones and compiles raylib (vendored in vendor/raylib)
+#  - Recursively finds .c in src/ and .h in include/
+#  - Requires GNU Make and git
 # ============================================================
 
-# ---------- Nome do executável (usa o nome da pasta do projeto) ----------
+# ---------- Executable name (uses the project folder name) ----------
 TARGET_NAME := $(notdir $(CURDIR))
 
-SRC_DIR   := src
-INC_DIR   := include
-BUILD_DIR := build
-BIN_DIR   := bin
+SRC_DIR        := src
+INC_DIR        := include
+BASE_BUILD_DIR := build
+BIN_DIR        := bin
 
 CC   := gcc
 CSTD := -std=c11
 
-# ---------- Raylib vendorizada (baixada e compilada por este Makefile) ----------
+# ---------- Vendored Raylib (downloaded and compiled by this Makefile) ----------
 RAYLIB_VERSION := 6.0
 RAYLIB_DIR     := vendor/raylib
 RAYLIB_SRC     := $(RAYLIB_DIR)/src
 RAYLIB_LIB     := $(RAYLIB_SRC)/libraylib.a
 RAYLIB_REPO    := https://github.com/raysan5/raylib.git
 
-# ---------- Detecção de plataforma ----------
-ifeq ($(OS),Windows_NT)
-    PLATFORM_OS := WINDOWS
-    EXE_EXT     := .exe
-    LDLIBS      := -lraylib -lopengl32 -lgdi32 -lwinmm
+# ---------- Platform ----------
+EXE_EXT := .out
+PLATFORM_OS := LINUX
+LDLIBS := -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl -lwebp -lwebpdecoder -lpqxx -lpq -pthread
+
+# ---------- Build Mode Configuration ----------
+# Default mode is release. Override internally via targets.
+MODE ?= release
+
+ifeq ($(MODE),debug)
+    OPT_FLAGS   := -g -O0
+    TARGET_SUFF := _debug
 else
-    UNAME_S := $(shell uname -s)
-    EXE_EXT :=
-    ifeq ($(UNAME_S),Darwin)
-        PLATFORM_OS := MACOS
-        LDLIBS := -lraylib -framework CoreVideo -framework IOKit -framework Cocoa -framework OpenGL
-    else
-        PLATFORM_OS := LINUX
-        LDLIBS := -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
-    endif
+    OPT_FLAGS   := -O2
+    TARGET_SUFF := 
 endif
 
-TARGET := $(BIN_DIR)/$(TARGET_NAME)$(EXE_EXT)
+# Isolate build artifacts and binary names based on mode
+BUILD_DIR := $(BASE_BUILD_DIR)/$(MODE)
+TARGET    := $(BIN_DIR)/$(TARGET_NAME)$(TARGET_SUFF)$(EXE_EXT)
 
-# ---------- Busca recursiva de arquivos ----------
+# ---------- Recursive file search ----------
 rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 
 SRCS := $(call rwildcard,$(SRC_DIR)/,*.c)
 HDRS := $(call rwildcard,$(INC_DIR)/,*.h)
 
-# Todas as subpastas de include/ entram como -I, permitindo
-# #include "arquivo.h" de qualquer nível de profundidade.
+# All subfolders in include/ are added as -I
 INC_SUBDIRS := $(sort $(dir $(HDRS)))
 INC_FLAGS   := -I$(INC_DIR) $(addprefix -I,$(INC_SUBDIRS)) -I$(RAYLIB_SRC)
 
+# Output objects inside the specific build mode folder
 OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
 
-# ---------- Build Mode configuration ----------
-# Default mode is release. Override by passing DEBUG=1
-DEBUG ?= 0
-
-ifeq ($(DEBUG), 1)
-    # Debug flags: generate debug symbols and disable optimizations
-    OPT_FLAGS := -g -O0
-else
-    # Release flags: optimize for performance
-    OPT_FLAGS := -O2
-endif
-
 CFLAGS  := $(CSTD) -Wall -Wextra $(OPT_FLAGS) -MMD -MP $(INC_FLAGS)
-
 LDFLAGS := -L$(RAYLIB_SRC)
 
-# ---------- Debug target alias ----------
-.PHONY: all raylib run clean distclean rebuild debug
+# ---------- Targets ----------
+.PHONY: all release debug build_target raylib run run_debug clean distclean rebuild
 
-all: $(TARGET)
+# Default target
+all: release
+
+# Explicit targets for modes (delegates to build_target with MODE override)
+release:
+	@$(MAKE) --no-print-directory build_target MODE=release
 
 debug:
-	$(MAKE) all DEBUG=1
+	@$(MAKE) --no-print-directory build_target MODE=debug
 
-# ---------- Link final ----------
+# The actual target that builds the binary
+build_target: $(TARGET)
+
+# ---------- Final Link ----------
 $(TARGET): $(OBJS) $(RAYLIB_LIB)
 	@mkdir -p $(dir $@)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS) $(LDLIBS)
-	@echo "Build concluido: $@"
+	@echo "Build complete [$(MODE)]: $@"
 
-# ---------- Compilação dos .c (espelha a estrutura de src/ em build/) ----------
+# ---------- Compile .c files ----------
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(RAYLIB_LIB)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# ---------- Clona e compila a raylib (só roda se libraylib.a ainda não existir) ----------
+# ---------- Clone and compile raylib ----------
 $(RAYLIB_LIB):
 	@if [ ! -d "$(RAYLIB_DIR)" ]; then \
-		echo "-> Clonando raylib $(RAYLIB_VERSION)..."; \
+		echo "-> Cloning raylib $(RAYLIB_VERSION)..."; \
 		git clone --branch $(RAYLIB_VERSION) --depth 1 $(RAYLIB_REPO) $(RAYLIB_DIR); \
 	fi
-	@echo "-> Compilando raylib para $(PLATFORM_OS)..."
+	@echo "-> Compiling raylib for $(PLATFORM_OS)..."
 	$(MAKE) -C $(RAYLIB_SRC) PLATFORM=PLATFORM_DESKTOP
 
-raylib: $(RAYLIB_LIB)
+# ---------- Utilities ----------
+run: release
+	./$(BIN_DIR)/$(TARGET_NAME)$(EXE_EXT)
 
-run: all
-	./$(TARGET)
+run_debug: debug
+	./$(BIN_DIR)/$(TARGET_NAME)_debug$(EXE_EXT)
 
 clean:
-	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -rf $(BASE_BUILD_DIR) $(BIN_DIR)
 
-# remove também a raylib vendorizada (reset completo)
 distclean: clean
 	rm -rf $(RAYLIB_DIR)
 

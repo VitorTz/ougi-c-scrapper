@@ -1,4 +1,5 @@
 #include "../../include/structure/vector.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,6 +42,18 @@ void vector_init(Vector* vec, const size_t data_size, const size_t capacity) {
     }    
 }
 
+void vector_reserve(Vector* vec, const size_t capacity) {
+    if (capacity <= vec->capacity || capacity == 0) {
+        return;
+    }
+    void* tmp_ptr = realloc(vec->ptr, capacity * vec->data_size);
+    
+    if (tmp_ptr != NULL) {
+        vec->ptr = tmp_ptr;
+        vec->capacity = capacity;
+    }
+}
+
 void vector_deinit(Vector* vec) {
     if (vec == NULL) { return; }
     if (vec->ptr != NULL) {
@@ -68,7 +81,7 @@ static void vector_grow(Vector* vec) {
 }
 
 
-void vector_push_back(Vector* vec, void* src) {
+void vector_push_back(Vector* vec, const void* src) {
     if (vec->length >= vec->capacity) {
         vector_grow(vec);
     }
@@ -135,10 +148,10 @@ void vector_erase(Vector* vec, size_t index) {
 
 
 void* vector_at(const Vector* vec, const size_t index) {
-    if (index >= vec->length) {
+    if (vec == NULL || index >= vec->length) {
         return NULL;
     }
-    return (void*) vec->ptr + (index * vec->data_size);
+    return vec->ptr + (index * vec->data_size);
 }
 
 
@@ -160,6 +173,7 @@ void vector_clear(Vector* vec) {
 
 
 Iterator vector_iter(const Vector *vec) {
+    if (vec == NULL) { return (Iterator){0}; }
     return (Iterator){
         .begin = vec->ptr,
         .end = vec->ptr + (vec->length * vec->data_size),
@@ -176,4 +190,9 @@ char* vector_iter_next(Iterator* iter) {
         iter->current += iter->step;
     }
     return tmp;
+}
+
+
+size_t vector_size(const Vector* vec) {
+    return vec->length;
 }

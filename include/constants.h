@@ -8,6 +8,9 @@
 #define WINDOW_TITLE "Ougi C-SCRAPPER"
 #define WINDOW_FPS 30
 
+#define DEFAULT_REFERER "https://www.google.com/"
+#define DEFAULT_IMG_COMPRESSING 85.f
+
 #define WINDOW_BG_COLOR (Color){35, 39, 46, 255}
 
 
