@@ -1,5 +1,6 @@
 #ifndef CSTRING_H
 #define CSTRING_H
+#include "vector.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -13,8 +14,16 @@ typedef struct {
 /* Initialize an empty string */
 CString string_init(const char* value);
 
+bool string_assign(CString* str, const char* value);
+
+bool string_assign_substr(CString* str, const char* value, size_t len);
+
+CString string_copy(const CString* str);
+
 /* Free the allocated memory (equivalent to destructor) */
 void string_destroy(CString* str);
+
+void string_reserve(CString* str, size_t min_capacity);
 
 /* Append a single character (equivalent to push_back) */
 void string_push_back(CString* str, char c);
@@ -29,7 +38,7 @@ const char* string_c_str(const CString* str);
 size_t string_size(const CString* str);
 
 /* Check if string is empty (equivalent to empty()) */
-bool string_empty(const CString* str);
+bool string_is_empty(const CString* str);
 
 /* Clear the content without freeing capacity (equivalent to clear()) */
 void string_clear(CString* str);
@@ -37,6 +46,19 @@ void string_clear(CString* str);
 /* Compare two strings (equivalent to operator==) */
 bool string_equals(const CString* str1, const CString* str2);
 
+void string_toupper(CString* str);
+
+void string_tolower(CString* str);
+
+void string_trim(CString* str);
+
+CString string_trim_copy(const CString* str);
+
+Vector* string_split(const CString* str, char delim, bool skip_empty);
+
+void string_split_destroy(Vector* parts);
+
+void string_split_print(const Vector* parts);
 
 void string_print(const CString* str);
 

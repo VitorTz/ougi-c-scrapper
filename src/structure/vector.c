@@ -26,7 +26,7 @@ Vector* vector_create(const size_t data_size, const size_t capacity) {
 }
 
 void vector_init(Vector* vec, const size_t data_size, const size_t capacity) {
-    if (vec == NULL) {  return ;  }
+    if (vec == NULL) {  return;  }
 
     vec->data_size = data_size;
     vec->capacity = capacity;
@@ -42,6 +42,10 @@ void vector_init(Vector* vec, const size_t data_size, const size_t capacity) {
     }    
 }
 
+void* vector_data(Vector* vec) {
+    return vec->ptr;
+}
+
 void vector_reserve(Vector* vec, const size_t capacity) {
     if (capacity <= vec->capacity || capacity == 0) {
         return;
@@ -52,6 +56,27 @@ void vector_reserve(Vector* vec, const size_t capacity) {
         vec->ptr = tmp_ptr;
         vec->capacity = capacity;
     }
+}
+
+bool vector_assign(Vector* vec, const void* src, const size_t num_items) {
+    if (!vec) return false;
+    
+    if (num_items == 0) {
+        vec->length = 0;
+        return true;
+    }
+
+    if (!src) return false;
+
+    if (vec->ptr == src) {
+        vec->length = num_items;
+        return true;
+    }
+
+    vector_reserve(vec, num_items);
+    memmove(vec->ptr, src, num_items * vec->data_size);
+    vec->length = num_items;
+    return true;
 }
 
 void vector_deinit(Vector* vec) {
@@ -190,6 +215,11 @@ char* vector_iter_next(Iterator* iter) {
         iter->current += iter->step;
     }
     return tmp;
+}
+
+
+bool vector_is_empty(const Vector* vec) {
+    return vec->length == 0;
 }
 
 

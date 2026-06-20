@@ -87,7 +87,7 @@ CString fetch_html(
 
     print_log("Finished fetching", url);
 
-    if (string_empty(&result)) {
+    if (string_is_empty(&result)) {
         printf("Fetched HTML is empty for: %s\n", url);
     }
 

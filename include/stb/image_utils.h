@@ -12,15 +12,18 @@
  *
  * Linux:   sudo apt install libcurl4-openssl-dev libwebp-dev
  *
- * In exactly ONE .cpp file, before including this header, define:
+ * In exactly ONE .c file, before including this header, define:
  *
  *   #define IMAGE_UTILS_IMPL
  *   #include "image_utils.h"
  */
 
+#include <string.h>
+#include <stdbool.h>
+#include <raylib.h>
 #include "../types.h"
 #include "../structure/path.h"
-#include <string.h>
+#include "../structure/cstring.h"
 
 
 Path download(
@@ -51,5 +54,11 @@ Path resize(
     float quality, 
     bool encode
 );
+
+bool is_webp(const Path* path);
+
+CString rgb_to_hex(const RGB rgb);
+
+Color hex_to_color(const CString* string);
 
 #endif

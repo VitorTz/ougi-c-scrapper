@@ -1,6 +1,7 @@
 #ifndef MAP_H
 #define MAP_H
 #include "vector.h"
+#include <stdbool.h>
 #include <stddef.h>
 
 
@@ -51,6 +52,8 @@ void map_upsert(Map* map, const void* key, const void* value);
 void map_erase(Map* map, const void* key);
 
 void map_clear(Map* map);
+
+bool map_contains(Map* map, const void* key);
 
 MapSearchResult map_search(Map* map, const void* key);
 

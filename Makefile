@@ -26,7 +26,7 @@ RAYLIB_REPO    := https://github.com/raysan5/raylib.git
 # ---------- Platform ----------
 EXE_EXT := .out
 PLATFORM_OS := LINUX
-LDLIBS := -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl -lwebp -lwebpdecoder -lpqxx -lpq -pthread
+LDLIBS := -lraylib -lGL -lm -ldl -lrt -lX11 -lcurl -lwebp -lwebpdecoder -lpqxx -lpq -pthread
 
 # ---------- Build Mode Configuration ----------
 # Default mode is release. Override internally via targets.
@@ -58,7 +58,7 @@ INC_FLAGS   := -I$(INC_DIR) $(addprefix -I,$(INC_SUBDIRS)) -I$(RAYLIB_SRC)
 OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
 
-CFLAGS  := $(CSTD) -Wall -Wextra $(OPT_FLAGS) -MMD -MP $(INC_FLAGS)
+CFLAGS  := $(CSTD) -Wall -Wextra $(OPT_FLAGS) -MMD -MP -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE $(INC_FLAGS)
 LDFLAGS := -L$(RAYLIB_SRC)
 
 # ---------- Targets ----------

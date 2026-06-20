@@ -1,5 +1,6 @@
 #ifndef TYPES_H
 #define TYPES_H
+#include <stdint.h>
 #include <stddef.h>
 
 
@@ -9,6 +10,11 @@ typedef struct Iterator {
     char* current;
     size_t step;
 } Iterator;
+
+
+typedef struct RGB {
+  uint8_t r, g, b;
+} RGB;
 
 
 #endif

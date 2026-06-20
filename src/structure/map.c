@@ -54,12 +54,11 @@ Map* map_create(
 void map_destroy(Map* map) {
     if (map == NULL) { return; }
 
-    Iterator iter = vector_iter(map->buckets);
     Vector* it = NULL;
-
-    while ((it = (Vector*) vector_iter_next(&iter)) != NULL) {
+    VECTOR_FOREACH(Vector, it, map->buckets) {
         vector_deinit(it);
     }
+
     vector_destroy(map->buckets);
     map->buckets = NULL;
     free(map);
@@ -68,10 +67,9 @@ void map_destroy(Map* map) {
 
 void* map_allocate(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
-
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (CMP_NODE_HASH(aux)) {
-            return (void*) (aux.node + map->key_size);
+        if (aux.hashed_key == *((size_t*) aux.node)) {
+            return aux.node + map->key_size;
         }
     }
 
@@ -153,6 +151,11 @@ void map_clear(Map* map) {
         vector_clear(it);
     }
     map->size = 0;
+}
+
+
+bool map_contains(Map *map, const void *key) {
+    return map_at(map, key) != NULL;
 }
 
 

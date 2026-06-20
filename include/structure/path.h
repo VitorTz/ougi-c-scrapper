@@ -1,19 +1,14 @@
 #ifndef PATH_H
 #define PATH_H
-
 #include <stddef.h>
+#include "cstring.h"
 
 
-// Linux
 #define PATH_SEPARATOR '/'
 #define PATH_SEPARATOR_STR "/"
 
-/* Structure representing the filesystem path */
-typedef struct {
-    char* data;
-    size_t length;
-    size_t capacity;
-} Path;
+typedef CString Path;
+
 
 /* Initializes the path with an optional starting string */
 Path path_init(const char* initial_path);
@@ -33,8 +28,45 @@ char* path_filename(const Path* p);
 /* Returns a newly allocated string with the extension component */
 char* path_extension(const Path* p);
 
+/*
+ * Changes the extension of the given path in-place.
+ * It only modifies the path if a valid extension already exists.
+ * The new_extension should include the dot (e.g., ".png").
+ */
+void path_change_extension(Path* p, const char* new_extension);
+
+
 /* Returns a newly allocated string with the parent path */
-char* path_parent_path(const Path* p);
+Path path_parent_path(const Path* p);
+
+/*
+ * Returns a new Path containing the absolute, resolved path.
+ * Resolves all symbolic links, extra '/' characters, and references to /./ and /../.
+ * Returns an empty Path if the resolution fails (e.g., if the file does not exist).
+ */
+Path path_absolute(const Path* p);
+
+/* Checks if the given path exists on the file system */
+bool path_exists(const Path* p);
+
+/* Checks if the given path is a directory */
+bool path_is_dir(const Path* p);
+
+/* Checks if the given path is a regular file (not a directory, symlink, etc.) */
+bool path_is_regular_file(const Path* p);
+
+/*
+ * Returns a null-terminated array of strings (char**) containing the absolute/relative
+ * paths of all children inside the directory. Ignores "." and "..".
+ * The caller is responsible for freeing each string and the array itself.
+ * Returns NULL if the path is not a directory or if allocation fails.
+ */
+Vector path_dir_iterator(const Path* p);
+
+/* Helper to free the array returned by path_dir_iterator */
+void path_dir_iterator_free(const Vector* vec);
+
+void path_print(const Path* p);
 
 
 #endif
