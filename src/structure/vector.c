@@ -1,48 +1,29 @@
 #include "../../include/structure/vector.h"
+#include "../../include/structure/introsort.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <webp/types.h>
 
 
-Vector* vector_create(const size_t data_size, const size_t capacity) {
-    Vector* vec = malloc(sizeof(Vector));
-    if (vec == NULL) {  return NULL;  }
+Vector vector_create(const size_t data_size, const size_t capacity) {
+    const size_t cpc = capacity > 0 ? capacity : 8;
+    return (Vector){
+        .ptr = (char*) malloc(data_size * cpc),
+        .data_size = data_size,
+        .capacity = cpc,
+        .length = 0
+    };
+}
 
-    vec->data_size = data_size;
-    vec->capacity = capacity;
-    vec->length = 0;
-
-    if (capacity > 0) {
-        vec->ptr = malloc(data_size * capacity);
-        if (vec->ptr == NULL) {
-            free(vec);
-            return NULL;
-        }
-    } else {
-        vec->ptr = NULL;
+void vector_destroy(const Vector* vec) {
+    if (vec == NULL) { return; }
+    if (vec->ptr != NULL) {
+        free(vec->ptr);
     }
-
-    return vec;
 }
 
-void vector_init(Vector* vec, const size_t data_size, const size_t capacity) {
-    if (vec == NULL) {  return;  }
-
-    vec->data_size = data_size;
-    vec->capacity = capacity;
-    vec->length = 0;
-
-    if (capacity > 0) {
-        vec->ptr = malloc(data_size * capacity);
-        if (vec->ptr == NULL) {
-            free(vec);
-        }
-    } else {
-        vec->ptr = NULL;
-    }    
-}
-
-void* vector_data(Vector* vec) {
+void* vector_data(const Vector* vec) {
     return vec->ptr;
 }
 
@@ -79,22 +60,6 @@ bool vector_assign(Vector* vec, const void* src, const size_t num_items) {
     return true;
 }
 
-void vector_deinit(Vector* vec) {
-    if (vec == NULL) { return; }
-    if (vec->ptr != NULL) {
-        free(vec->ptr);
-    }
-}
-
-void vector_destroy(Vector* vec) {
-    if (vec == NULL) { return; }
-    if (vec->ptr != NULL) {
-        free(vec->ptr);
-    }
-    free(vec);
-}
-
-
 static void vector_grow(Vector* vec) {
     const size_t new_capacity = vec->capacity == 0 ? 1 : vec->capacity * 2;
     void* tmp_ptr = realloc(vec->ptr, new_capacity * vec->data_size);
@@ -104,7 +69,6 @@ static void vector_grow(Vector* vec) {
         vec->capacity = new_capacity;
     }
 }
-
 
 void vector_push_back(Vector* vec, const void* src) {
     if (vec->length >= vec->capacity) {
@@ -118,7 +82,6 @@ void vector_push_back(Vector* vec, const void* src) {
     vec->length++;
 }
 
-
 void* vector_allocate(Vector* vec) {
     if (vec->length >= vec->capacity) {
         vector_grow(vec);
@@ -128,8 +91,7 @@ void* vector_allocate(Vector* vec) {
     return dest;
 }
 
-
-void vector_insert(Vector* vec, void* src, size_t index) {
+void vector_insert(Vector* vec, void* src, const size_t index) {
     if (index > vec->length) {
         return; 
     }
@@ -156,8 +118,7 @@ void vector_insert(Vector* vec, void* src, size_t index) {
     vec->length++;
 }
 
-
-void vector_erase(Vector* vec, size_t index) {
+void vector_erase(Vector* vec, const size_t index) {
     if (index >= vec->length) { return; }
         
     const size_t elements_to_move = vec->length - index - 1;
@@ -171,7 +132,6 @@ void vector_erase(Vector* vec, size_t index) {
     vec->length--;
 }
 
-
 void* vector_at(const Vector* vec, const size_t index) {
     if (vec == NULL || index >= vec->length) {
         return NULL;
@@ -179,8 +139,7 @@ void* vector_at(const Vector* vec, const size_t index) {
     return vec->ptr + (index * vec->data_size);
 }
 
-
-void* vector_pop(Vector* vec, size_t index) {
+void* vector_pop(Vector* vec, const size_t index) {
     if (index >= vec->length) { return NULL; }
     void* tmp = malloc(vec->data_size);
     if (tmp != NULL) {
@@ -191,11 +150,9 @@ void* vector_pop(Vector* vec, size_t index) {
     return tmp;
 }
 
-
 void vector_clear(Vector* vec) {
     vec->length = 0;
 }
-
 
 Iterator vector_iter(const Vector *vec) {
     if (vec == NULL) { return (Iterator){0}; }
@@ -207,7 +164,6 @@ Iterator vector_iter(const Vector *vec) {
     };
 }
 
-
 char* vector_iter_next(Iterator* iter) {
     char* tmp = NULL;
     if (iter->current < iter->end) {
@@ -217,11 +173,42 @@ char* vector_iter_next(Iterator* iter) {
     return tmp;
 }
 
+void vector_sort(Vector* vec, SortFunc func) {
+    if (!vec) return;
+    introsort(
+        vec->ptr, 
+        vec->length, 
+        vec->data_size, 
+        func
+    );
+}
+
+void vector_filter(Vector* vec, FilterFunc func) {
+    if (!vec || !vec->ptr || !func || vec->length == 0) {
+        return;
+    }
+
+    size_t write_index = 0;
+    char* data_ptr = vec->ptr;
+    size_t item_size = vec->data_size;
+    
+    for (size_t read_index = 0; read_index < vec->length; read_index++) {
+        char* current_item = data_ptr + (read_index * item_size);
+        if (func(current_item)) {
+            if (write_index != read_index) {
+                char* target_slot = data_ptr + (write_index * item_size);
+                memmove(target_slot, current_item, item_size);
+            }
+            write_index++;
+        }
+    }
+    vec->length = write_index;
+}
+
 
 bool vector_is_empty(const Vector* vec) {
     return vec->length == 0;
 }
-
 
 size_t vector_size(const Vector* vec) {
     return vec->length;

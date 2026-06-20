@@ -22,8 +22,18 @@
 #include <stdbool.h>
 #include <raylib.h>
 #include "../types.h"
+#include "../structure/vector.h"
 #include "../structure/path.h"
 #include "../structure/cstring.h"
+
+
+typedef struct PixelBuffer {
+    Vector data;
+    int w, h, ch, out_ch;
+} PixelBuffer;
+
+
+PixelBuffer loadPixels(const Path* path);
 
 
 Path download(

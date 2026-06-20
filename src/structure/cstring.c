@@ -7,21 +7,30 @@
 
 
 
-CString string_init(const char* value) {
-    CString str = {
-        .size = 0,
-        .capacity = 16,
-        .data = (char*)malloc(16 * sizeof(char))
-    };
+CString cstring_create(const char* value) {
+    CString str = {0};
+
+    str.size = (value != NULL) ? strlen(value) : 0;
+    str.capacity = (str.size >= 16) ? (str.size + 1) * 2 : 16;
+    str.data = (char*) malloc(str.capacity * sizeof(char));
+    
     if (str.data != NULL) {
-        str.data[0] = '\0';
+        if (str.size > 0) {
+            memcpy(str.data, value, str.size);
+            str.data[str.size] = '\0';
+        } else {
+            str.data[0] = '\0';
+        }
+    } else {
+        str.size = 0;
+        str.capacity = 0;
     }
-    string_append(&str, value);
+    
     return str;
 }
 
 
-void string_destroy(CString* str) {
+void cstring_destroy(CString* str) {
     if (str->data != NULL) {
         free(str->data);
         str->data = NULL;
@@ -30,7 +39,8 @@ void string_destroy(CString* str) {
     str->capacity = 0;
 }
 
-void string_reserve(CString* str, const size_t min_capacity) {
+
+void cstring_reserve(CString* str, const size_t min_capacity) {
     if (min_capacity > str->capacity) {
         size_t new_capacity = str->capacity * 2;
         if (new_capacity < min_capacity) {
@@ -45,38 +55,38 @@ void string_reserve(CString* str, const size_t min_capacity) {
 }
 
 
-void string_push_back(CString* str, char c) {
-    string_reserve(str, str->size + 2);
+void cstring_push_back(CString* str, char c) {
+    cstring_reserve(str, str->size + 2);
     str->data[str->size] = c;
     str->size++;
     str->data[str->size] = '\0';
 }
 
 
-void string_append(CString* str, const char* suffix) {
+void cstring_append(CString* str, const char* suffix) {
     if (suffix == NULL) return;
     size_t suffix_len = strlen(suffix);
-    string_reserve(str, str->size + suffix_len + 1);
+    cstring_reserve(str, str->size + suffix_len + 1);
     memcpy(str->data + str->size, suffix, suffix_len);
     str->size += suffix_len;
     str->data[str->size] = '\0';
 }
 
 
-bool string_assign(CString* str, const char* value) {
+bool cstring_assign(CString* str, const char* value) {
     if (!str || !value) return false;
     const size_t len = strlen(value);
-    string_reserve(str, len + 1);
+    cstring_reserve(str, len + 1);
     memcpy(str->data, value, len + 1);
     str->size = len;
     return true;
 }
 
-bool string_assign_substr(CString* str, const char* value, const size_t len) {
+bool cstring_assign_substr(CString* str, const char* value, const size_t len) {
     if (!str || !value) {
         return false;
     }
-    string_reserve(str, len + 1);
+    cstring_reserve(str, len + 1);
     memmove(str->data, value, len);
     str->data[len] = '\0';    
     str->size = len;    
@@ -84,28 +94,28 @@ bool string_assign_substr(CString* str, const char* value, const size_t len) {
 }
 
 
-CString string_copy(const CString* str) {
-    return string_init(str->data);
+CString cstring_copy(const CString* str) {
+    return cstring_create(str->data);
 }
 
 
-const char* string_c_str(const CString* str) {
+const char* cstring_c_str(const CString* str) {
     return str->data;
 }
 
 
-size_t string_size(const CString* str) {
+size_t cstring_size(const CString* str) {
     if (!str || !str->data) {return 0;}
     return str->size;
 }
 
 
-bool string_is_empty(const CString* str) {
+bool cstring_is_empty(const CString* str) {
     return str->size == 0;
 }
 
 
-void string_clear(CString* str) {
+void cstring_clear(CString* str) {
     str->size = 0;
     if (str->capacity > 0 && str->data != NULL) {
         str->data[0] = '\0';
@@ -113,12 +123,12 @@ void string_clear(CString* str) {
 }
 
 /* Compare two strings (equivalent to operator==) */
-bool string_equals(const CString* str1, const CString* str2) {
+bool cstring_equals(const CString* str1, const CString* str2) {
     if (str1->size != str2->size) return false;
     return strcmp(str1->data, str2->data) == 0;
 }
 
-void string_toupper(CString* str) {
+void cstring_toupper(CString* str) {
     if (!str || !str->data) { return; }
 
     for (size_t i = 0; i < str->size; i++) {
@@ -126,7 +136,7 @@ void string_toupper(CString* str) {
     }
 }
 
-void string_tolower(CString* str) {
+void cstring_tolower(CString* str) {
     if (!str || !str->data) { return; }
 
     for (size_t i = 0; i < str->size; i++) {
@@ -135,7 +145,7 @@ void string_tolower(CString* str) {
 }
 
 
-void string_trim(CString* str) {
+void cstring_trim(CString* str) {
     if (!str || !str->data || str->size == 0) return;
 
     size_t start = 0;
@@ -163,9 +173,9 @@ void string_trim(CString* str) {
 }
 
 
-CString string_trim_copy(const CString* str) {
-    CString cpy = string_copy(str);
-    string_trim(&cpy);
+CString cstring_trim_copy(const CString* str) {
+    CString cpy = cstring_copy(str);
+    cstring_trim(&cpy);
     return cpy;
 }
 
@@ -173,14 +183,17 @@ void string_split_destroy(Vector* parts) {
     Iterator iter = vector_iter(parts);
     CString* it = NULL;
     while ((it = (CString*) vector_iter_next(&iter)) != NULL) {
-        string_destroy(it);
+        cstring_destroy(it);
     }
     vector_destroy(parts);
 }
 
-Vector* string_split(const CString* str, char delim, bool skip_empty) {    
-    if (!str || !str->data) return NULL;
-    Vector* parts = vector_create(sizeof(CString), 4);
+Vector cstring_split(const CString* str, char delim, bool skip_empty) {    
+    Vector parts = vector_create(sizeof(CString), 4);
+    
+    if (!str || !str->data) {
+        return parts;
+    }
 
     size_t token_start = 0;
 
@@ -196,14 +209,14 @@ Vector* string_split(const CString* str, char delim, bool skip_empty) {
 
         char* tmp = (char*) malloc(token_len + 1);
         if (!tmp) {
-            string_split_destroy(parts);
-            return NULL;
+            string_split_destroy(&parts);
+            return vector_create(sizeof(CString), 4);
         }
 
         memcpy(tmp, str->data + token_start, token_len);
         tmp[token_len] = '\0';
-        CString aux = string_init(tmp);
-        vector_push_back(parts, &aux);
+        CString aux = cstring_create(tmp);
+        vector_push_back(&parts, &aux);
         free(tmp);
         token_start = i + 1;
     }
@@ -212,7 +225,7 @@ Vector* string_split(const CString* str, char delim, bool skip_empty) {
 }
 
 
-void string_split_print(const Vector* parts) {
+void cstring_split_print(const Vector* parts) {
     if (parts == NULL) { 
         printf("None\n");
         return; 
@@ -234,6 +247,6 @@ void string_split_print(const Vector* parts) {
 }
 
 
-void string_print(const CString *str) {
-    printf("%s\n", string_c_str(str));
+void cstring_print(const CString *str) {
+    printf("%s\n", cstring_c_str(str));
 }

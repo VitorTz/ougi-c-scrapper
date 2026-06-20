@@ -17,9 +17,9 @@ typedef struct MapAux {
 } MapAux;
 
 
-static MapAux get_map_aux(Map* map, const void* key) {
+static MapAux get_map_aux(const Map* map, const void* key) {
     const size_t hash_key = map->hash(key);
-    Vector* bucket = (Vector*) vector_at(map->buckets, hash_key % map->nbuckets);
+    Vector* bucket = (Vector*) vector_at(&map->buckets, hash_key % map->nbuckets);
     return (MapAux){
         .hashed_key = hash_key,
         .bucket = bucket,
@@ -29,24 +29,26 @@ static MapAux get_map_aux(Map* map, const void* key) {
 }
 
 
-Map* map_create(
+Map map_create(
     const size_t key_size, 
     const size_t value_size, 
     const size_t nbuckets,
     HashFunc hash    
 ) {
-    Map* map = (Map*) malloc(sizeof(Map));
-    map->nbuckets = nbuckets > 0 ? nbuckets : 4;
-    map->size = 0;
-    map->key_size = key_size;
-    map->value_size = value_size;
-    map->node_size = key_size + value_size;
-    map->hash = hash;
-    map->buckets = (Vector*) vector_create(sizeof(Vector), map->nbuckets);
-    for (size_t i = 0; i < map->nbuckets; i++) {
-        Vector* vec = (Vector*) vector_allocate(map->buckets);
-        vector_init(vec, map->node_size, 4);
-    }    
+    const size_t total_buckets = nbuckets > 0 ? nbuckets : 4;
+    Map map = (Map){
+        .nbuckets = total_buckets,
+        .size = 0,
+        .key_size = key_size,
+        .value_size = value_size,
+        .node_size = key_size + value_size,
+        .hash = hash,
+        .buckets = vector_create(sizeof(Vector), total_buckets)
+    };
+    for (size_t i = 0; i < total_buckets; i++) {
+        const Vector vec = vector_create(sizeof(map.node_size), 4);
+        vector_push_back(&map.buckets, &vec);
+    }
     return map;
 }
 
@@ -55,20 +57,19 @@ void map_destroy(Map* map) {
     if (map == NULL) { return; }
 
     Vector* it = NULL;
-    VECTOR_FOREACH(Vector, it, map->buckets) {
-        vector_deinit(it);
+    VECTOR_FOREACH(Vector, it, &map->buckets) {
+        vector_destroy(it);
     }
 
-    vector_destroy(map->buckets);
-    map->buckets = NULL;
-    free(map);
+    vector_destroy(&map->buckets);
+    *map = (Map){0};
 }
 
 
 void* map_allocate(Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
-        if (aux.hashed_key == *((size_t*) aux.node)) {
+        if (CMP_NODE_HASH(aux)) {
             return aux.node + map->key_size;
         }
     }
@@ -79,10 +80,8 @@ void* map_allocate(Map* map, const void* key) {
     return (void*) (node + map->key_size);
 }
 
-
-void* map_at(Map* map, const void* key) {
+void* map_at(const Map* map, const void* key) {
     MapAux aux = get_map_aux(map, key);
-
     while ((aux.node = (char*) vector_iter_next(&aux.bucket_iter)) != NULL) {
         if (CMP_NODE_HASH(aux)) {
             return (void*) (aux.node + map->key_size);
@@ -145,7 +144,7 @@ void map_erase(Map* map, const void* key) {
 
 void map_clear(Map* map) {
     if (map == NULL) { return; }
-    Iterator iter = vector_iter(map->buckets);
+    Iterator iter = vector_iter(&map->buckets);
     Vector* it = NULL;
     while ((it = (Vector*) vector_iter_next(&iter)) != NULL) {
         vector_clear(it);
@@ -154,13 +153,13 @@ void map_clear(Map* map) {
 }
 
 
-bool map_contains(Map *map, const void *key) {
+bool map_contains(const Map *map, const void *key) {
     return map_at(map, key) != NULL;
 }
 
 
 MapIterator map_iter(const Map* map) {
-    const Vector* bucket = map->nbuckets > 0 ? (Vector*) vector_at(map->buckets, 0) : NULL;
+    const Vector* bucket = map->nbuckets > 0 ? (Vector*) vector_at(&map->buckets, 0) : NULL;
     return (MapIterator){
         .map = map,
         .vec_iter = vector_iter(bucket),
@@ -179,7 +178,7 @@ void* map_iter_next(MapIterator* iter) {
     }
     if (iter->vec_index + 1 < iter->map->nbuckets) {
         iter->vec_index++;
-        iter->vec_iter = vector_iter(vector_at(iter->map->buckets, iter->vec_index));
+        iter->vec_iter = vector_iter(vector_at(&iter->map->buckets, iter->vec_index));
         return map_iter_next(iter);
     }
     return NULL;

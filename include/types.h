@@ -17,4 +17,9 @@ typedef struct RGB {
 } RGB;
 
 
+typedef int (*SortFunc)(const void* a, const void* b);
+
+typedef int (*FilterFunc)(const void* item);
+
+
 #endif

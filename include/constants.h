@@ -5,7 +5,7 @@
 
 #define SCREEN_WIDTH 1680
 #define SCREEN_HEIGHT 920
-#define WINDOW_TITLE "Ougi C-SCRAPPER"
+#define WINDOW_TITLE "Ougi Manager"
 #define WINDOW_FPS 30
 
 #define DEFAULT_REFERER "https://www.google.com/"

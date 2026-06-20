@@ -11,56 +11,58 @@ typedef struct {
     size_t capacity;
 } CString;
 
+
 /* Initialize an empty string */
-CString string_init(const char* value);
-
-bool string_assign(CString* str, const char* value);
-
-bool string_assign_substr(CString* str, const char* value, size_t len);
-
-CString string_copy(const CString* str);
+CString cstring_create(const char* value);
 
 /* Free the allocated memory (equivalent to destructor) */
-void string_destroy(CString* str);
+void cstring_destroy(CString* str);
 
-void string_reserve(CString* str, size_t min_capacity);
+void cstring_reserve(CString* str, size_t min_capacity);
 
 /* Append a single character (equivalent to push_back) */
-void string_push_back(CString* str, char c);
+void cstring_push_back(CString* str, char c);
 
 /* Append a C-style string (equivalent to append or +=) */
-void string_append(CString* str, const char* suffix);
+void cstring_append(CString* str, const char* suffix);
+
+bool cstring_assign(CString* str, const char* value);
+
+bool cstring_assign_substr(CString* str, const char* value, size_t len);
+
+CString cstring_copy(const CString* str);
+
 
 /* Get the C-style string (equivalent to c_str()) */
-const char* string_c_str(const CString* str);
+const char* cstring_c_str(const CString* str);
 
 /* Get current length (equivalent to size() or length()) */
-size_t string_size(const CString* str);
+size_t cstring_size(const CString* str);
 
 /* Check if string is empty (equivalent to empty()) */
-bool string_is_empty(const CString* str);
+bool cstring_is_empty(const CString* str);
 
 /* Clear the content without freeing capacity (equivalent to clear()) */
-void string_clear(CString* str);
+void cstring_clear(CString* str);
 
 /* Compare two strings (equivalent to operator==) */
-bool string_equals(const CString* str1, const CString* str2);
+bool cstring_equals(const CString* str1, const CString* str2);
 
-void string_toupper(CString* str);
+void cstring_toupper(CString* str);
 
-void string_tolower(CString* str);
+void cstring_tolower(CString* str);
 
-void string_trim(CString* str);
+void cstring_trim(CString* str);
 
-CString string_trim_copy(const CString* str);
+CString cstring_trim_copy(const CString* str);
 
-Vector* string_split(const CString* str, char delim, bool skip_empty);
+Vector cstring_split(const CString* str, char delim, bool skip_empty);
 
-void string_split_destroy(Vector* parts);
+void cstring_split_destroy(Vector* parts);
 
-void string_split_print(const Vector* parts);
+void cstring_split_print(const Vector* parts);
 
-void string_print(const CString* str);
+void cstring_print(const CString* str);
 
 
 #endif

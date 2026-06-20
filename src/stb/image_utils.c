@@ -22,25 +22,17 @@
 #include "../../include/structure/path.h"
 
 
-typedef struct PixelBuffer {
-    Vector* data;
-    int w, h, ch, out_ch;
-} PixelBuffer;
+static size_t MIN_PIXEL_BUFFER_CAPACITY = 256 * 1024;
 
 
-static PixelBuffer loadPixels(const Path* path) {
+PixelBuffer loadPixels(const Path* path) {
     PixelBuffer buf = {
         .w = 0,
         .h = 0,
         .ch = 0,
         .out_ch = 0,
-        .data = vector_create(sizeof(uint8_t), 1024)
-    };
-    
-    if (!buf.data) {
-        fprintf(stderr, "Failed to allocate initial vector for PixelBuffer\n");
-        return buf; 
-    }
+        .data = vector_create(sizeof(uint8_t), MIN_PIXEL_BUFFER_CAPACITY)
+    };    
 
     const char* path_string = path_c_str(path);
 
@@ -87,7 +79,7 @@ static PixelBuffer loadPixels(const Path* path) {
         buf.out_ch = 4;
         
         /* Copy the decoded pixels into the vector and free the libwebp buffer */
-        bool assigned = vector_assign(buf.data, px, (size_t)(buf.w * buf.h * 4));
+        bool assigned = vector_assign(&buf.data, px, (size_t)(buf.w * buf.h * 4));
         WebPFree(px);
 
         if (!assigned) {
@@ -114,7 +106,7 @@ static PixelBuffer loadPixels(const Path* path) {
     buf.out_ch = (ch == 4 || ch == 2) ? 4 : 3;
 
     /* Copy the loaded image into the vector and free the stb_image buffer */
-    bool assigned = vector_assign(buf.data, px, (size_t)(w * h * ch));
+    bool assigned = vector_assign(&buf.data, px, (size_t)(w * h * ch));
     stbi_image_free(px);
 
     if (!assigned) {
@@ -122,7 +114,7 @@ static PixelBuffer loadPixels(const Path* path) {
         goto error;
     }
     
-    if (vector_is_empty(buf.data)) {
+    if (vector_is_empty(&buf.data)) {
         fprintf(stderr, "Failed to load image (empty vector): %s — %s\n", path_string, stbi_failure_reason());
         goto error;
     }
@@ -131,10 +123,8 @@ static PixelBuffer loadPixels(const Path* path) {
 
 /* Cleanup block to prevent memory leaks on failure */
 error:
-    if (buf.data) {
-        vector_destroy(buf.data);
-        buf.data = NULL;
-    }
+    vector_destroy(&buf.data);
+    buf.data = (Vector){0};
     buf.w = 0;
     buf.h = 0;
     buf.ch = 0;
@@ -160,16 +150,16 @@ bool is_webp(const Path *path) {
 
 
 CString rgb_to_hex(const RGB rgb) {
-    CString string = string_init("#");
+    CString string = cstring_create("#");
     char hex_buf[7];
     snprintf(hex_buf, sizeof(hex_buf), "%02X%02X%02X", rgb.r, rgb.g, rgb.b);
-    string_append(&string, hex_buf);
+    cstring_append(&string, hex_buf);
     return string;
 }
 
 
 Color hex_to_color(const CString *string) {
-    if (string_size(string) != 7) {
+    if (cstring_size(string) != 7) {
         return WHITE;
     }
 

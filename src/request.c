@@ -35,59 +35,60 @@ static void print_log(const char* message, const char* url) {
 }
 
 /* Fetches HTML content from a given URL using a custom curl command */
-CString fetch_html(
-    const char* url,
-    const char* referer,
-    const int add_delay
-) {
-    CString result = string_init(NULL);
+CString fetch_html(const char* url, const char* referer, const int add_delay) {
+    CString result = cstring_create(NULL);
 
     print_log("Fetching...", url);
 
     if (add_delay) { delay(); }
 
-    CString cmd = string_init("curl_chrome116 --silent --compressed");
-    string_append(&cmd, " -A ''");
-    string_append(&cmd, " -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'");
-    string_append(&cmd, " -H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8'");
-    string_append(&cmd, " -H 'Sec-Fetch-Dest: document'");
-    string_append(&cmd, " -H 'Sec-Fetch-Mode: navigate'");
-    string_append(&cmd, " -H 'Sec-Fetch-Site: ");
-    referer == NULL ? string_append(&cmd, "none'") : string_append(&cmd, "same-origin'");
-    string_append(&cmd, " -H 'Sec-Fetch-User: ?1'");
-        
+    char cmd_buffer[4096];
+
+    /* Format the entire command in a single pass based on the referer's presence */
     if (referer != NULL) {
-        string_append(&cmd, " --referer '");
-        string_append(&cmd, referer);
-        string_append(&cmd, "'");
+        snprintf(cmd_buffer, sizeof(cmd_buffer),
+            "curl_chrome116 --silent --compressed -A '' "
+            "-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' "
+            "-H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8' "
+            "-H 'Sec-Fetch-Dest: document' "
+            "-H 'Sec-Fetch-Mode: navigate' "
+            "-H 'Sec-Fetch-Site: same-origin' "
+            "-H 'Sec-Fetch-User: ?1' "
+            "--referer '%s' "
+            "-b cookies.txt -c cookies.txt --location --max-redirs 10 '%s'",
+            referer, url);
+    } else {
+        snprintf(cmd_buffer, sizeof(cmd_buffer),
+            "curl_chrome116 --silent --compressed -A '' "
+            "-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' "
+            "-H 'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8' "
+            "-H 'Sec-Fetch-Dest: document' "
+            "-H 'Sec-Fetch-Mode: navigate' "
+            "-H 'Sec-Fetch-Site: none' "
+            "-H 'Sec-Fetch-User: ?1' "
+            "-b cookies.txt -c cookies.txt --location --max-redirs 10 '%s'",
+            url);
     }
 
-    /* Note: Removed the duplicated append call for cookies.txt */
-    string_append(&cmd, " -b cookies.txt -c cookies.txt");
-    string_append(&cmd, " --location --max-redirs 10");
-    
-    string_append(&cmd, " '");
-    string_append(&cmd, url);
-    string_append(&cmd, "'");
-    
-    /* popen is now properly recognized due to the _POSIX_C_SOURCE macro */
-    FILE* pipe = popen(string_c_str(&cmd), "r");
+    /* Pass the stack buffer directly to popen */
+    FILE* pipe = popen(cmd_buffer, "r");
     
     if (pipe == NULL) {
         printf("[Error] Failed to open pipe for url: %s\n", url);
         return result;
     }
 
+    cstring_reserve(&result, 4096);    
     char buffer[4096];
     while (fgets(buffer, sizeof(buffer), pipe)) {
-        string_append(&result, buffer);
+        cstring_append(&result, buffer);
     }
 
     pclose(pipe);
 
     print_log("Finished fetching", url);
 
-    if (string_is_empty(&result)) {
+    if (cstring_is_empty(&result)) {
         printf("Fetched HTML is empty for: %s\n", url);
     }
 

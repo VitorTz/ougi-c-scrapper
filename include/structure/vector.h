@@ -14,14 +14,11 @@ typedef struct vector {
     size_t capacity;
 } Vector;
 
+Vector vector_create(size_t data_size, size_t capacity);
 
-Vector* vector_create(size_t data_size, size_t capacity);
+void vector_destroy(const Vector* vec);
 
-void vector_init(Vector* vec, size_t data_size, size_t capacity);
-
-void* vector_data(Vector* vec);
-
-void vector_deinit(Vector* vec);
+void* vector_data(const Vector* vec);
 
 void vector_reserve(Vector* vec, size_t capacity);
 
@@ -39,17 +36,20 @@ void* vector_at(const Vector* vec, size_t index);
 
 void* vector_pop(Vector* vec, size_t index);
 
-void vector_destroy(Vector* vec);
 
 Iterator vector_iter(const Vector* vec);
+
+char* vector_iter_next(Iterator* iter);
 
 void vector_clear(Vector* vec);
 
 size_t vector_size(const Vector* vec);
 
-bool vector_is_empty(const Vector* vec);
+void vector_sort(Vector* vec, SortFunc func);
 
-char* vector_iter_next(Iterator* iter);
+void vector_filter(Vector* vec, FilterFunc func);
+
+bool vector_is_empty(const Vector* vec);
 
 
 /* * Generic foreach macro for Vector iteration.
