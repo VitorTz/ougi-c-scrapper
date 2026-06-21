@@ -1,29 +1,31 @@
 #include <raylib.h>
-#include <string.h>
-#include <stdio.h>
 #include "../../include/pool/texture_pool.h"
-#include "../../include/stb/image_utils.h"
+#include "../../include/image.h"
 #include "../../include/structure/map.h"
-#include "../../include/hash.h"
 
 
-static bool is_initialized = false;
-static Map pool = {0};
+typedef struct {
+    const char* key;
+    Texture2D value;
+} TextureMapItem;
+
+bool is_initialized = false;
+TextureMapItem* map = NULL;
 
 
 /*
  * Loads an image from a custom Path and returns a Raylib Texture2D.
  * Uses the custom loadPixels() implementation to handle WebP and fallback formats.
  */
-static Texture2D load_texture_custom(const Path* path) {
+static Texture2D load_texture_custom(const path_t* path) {
     /* Initialize an empty texture (id = 0 means invalid/failed) */
     Texture2D texture = { 0 };
 
     /* 1. Get raw pixels using your custom loader */
-    const PixelBuffer buf = loadPixels(path);
+    PixelBuffer buf = load_img_from_disk(path);
 
     /* 2. Check for failure (assuming the vector is empty on error) */
-    if (vector_is_empty(&buf.data) || buf.data.ptr == NULL) {
+    if (!buf.data || buf.num_bytes == 0) {
         /* Error is already logged inside loadPixels */
         return texture;
     }
@@ -43,7 +45,7 @@ static Texture2D load_texture_custom(const Path* path) {
 
     /* 4. Construct a Raylib Image struct pointing to your raw data */
     Image img = {
-        .data = buf.data.ptr,   /* Pointer to your Vector's raw char array */
+        .data = buf.data,   /* Pointer to your Vector's raw char array */
         .width = buf.w,
         .height = buf.h,
         .mipmaps = 1,           /* Default is 1 (no extra mipmaps) */
@@ -53,12 +55,7 @@ static Texture2D load_texture_custom(const Path* path) {
     /* 5. Upload the image data from RAM to the GPU */
     texture = LoadTextureFromImage(img);
 
-    /* 6. Clean up CPU memory 
-     * LoadTextureFromImage synchronously copies the data to OpenGL/VRAM.
-     * Once it returns, the CPU buffer is no longer needed.
-     */
-    vector_destroy(&buf.data);
-
+    free(buf.data);
     return texture;
 }
 
@@ -66,64 +63,49 @@ static Texture2D load_texture_custom(const Path* path) {
 void texture_pool_init() {
     if (is_initialized) { return; };
     is_initialized = true;
-    pool = map_create(
-        sizeof(size_t), 
-        sizeof(Texture2D), 
-        128, 
-        hash_string
-    );
+    hashmap_new(map, hashmap_hash_str, hashmap_eq_str);
 }
 
 
 Texture2D texture_pool_load(const char* filepath) {
-    MapSearchResult it = map_search(&pool, filepath);
-    Texture2D texture = {0};
-    if (it.exists) {
-        texture = *((Texture2D*) it.data);
-    } else {
-        Path tmp = path_create(filepath);
-        if (!path_exists(&tmp)) {
-            path_destroy(&tmp);
-            fprintf(stderr, "[FATAL ERROR] Texture file not found: %s\n", filepath);
-            exit(EXIT_FAILURE);
-        }
-        texture = load_texture_custom(&tmp);
-        memcpy(it.data, &texture, pool.value_size);
-        path_destroy(&tmp);
+    Texture2D* texture = hashmap_get(map, filepath);
+    if (texture == NULL) {
+        string_t str = string_new();
+        string_assign(&str, filepath);
+        Texture2D t = load_texture_custom(&str);
+        hashmap_put(map, filepath, t);
+        return t;
     }
-    return texture;
+    return *texture;
 }
 
 
 Texture2D texture_pool_get(const char* filepath) {
-    Texture2D* texture = (Texture2D*) map_at(&pool, filepath);
-    if (texture != NULL) { return *texture; }
-    return (Texture2D){0};
+    return *hashmap_get(map, filepath);
 }
 
 
 int texture_pool_unload(const char* filepath) {
-    Texture2D* texture = (Texture2D*) map_at(&pool, filepath);
+    Texture2D* texture = hashmap_get(map, filepath);
     if (texture != NULL) {
         UnloadTexture(*texture);
-        map_erase(&pool, filepath);
+        hashmap_remove(map, filepath);
         return 1;
-    }    
+    }
     return 0;
 }
 
 
 void texture_pool_clear() {
-    MapIterator iter = map_iter(&pool);
-    Texture2D* it = NULL;
-    while ((it = (Texture2D*) map_iter_next(&iter)) != NULL) {
-        UnloadTexture(*it);
+    hashmap_foreach(TextureMapItem, item, map) {
+        UnloadTexture(item->value);
     }
-    map_clear(&pool);
+    hashmap_clear(map);
 }
 
 
 void texture_pool_close() {
     texture_pool_clear();
-    map_destroy(&pool);
+    hashmap_free(map);
+    map = NULL;
 }

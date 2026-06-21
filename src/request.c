@@ -1,19 +1,15 @@
-/* Define POSIX C Source to expose POSIX-specific functions (nanosleep, popen, pclose) */
-#define _POSIX_C_SOURCE 200809L
-
-#include "../include/structure/cstring.h"
+#include "../include/request.h"
+#include "../include/util.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
+
 /* Halts the execution for a random period between 600ms and 1800ms */
 static void delay() {
-    int delay_ms = (rand() % (1800 - 600 + 1)) + 600;
-    struct timespec ts;
-    ts.tv_sec = delay_ms / 1000;
-    ts.tv_nsec = (delay_ms % 1000) * 1000000;
-    nanosleep(&ts, NULL);
+    const int delay_ms = (rand() % (1800 - 600 + 1)) + 600;
+    sleep_ms(delay_ms);
 }
 
 /* Formats and prints a log message with the current time */
@@ -35,8 +31,8 @@ static void print_log(const char* message, const char* url) {
 }
 
 /* Fetches HTML content from a given URL using a custom curl command */
-CString fetch_html(const char* url, const char* referer, const int add_delay) {
-    CString result = cstring_create(NULL);
+string_t fetch_html(const char* url, const char* referer, const bool add_delay) {
+    string_t str = string_new();
 
     print_log("Fetching...", url);
 
@@ -75,22 +71,21 @@ CString fetch_html(const char* url, const char* referer, const int add_delay) {
     
     if (pipe == NULL) {
         printf("[Error] Failed to open pipe for url: %s\n", url);
-        return result;
+        return str;
     }
-
-    cstring_reserve(&result, 4096);    
+    string_reserve(&str, 4096);
     char buffer[4096];
     while (fgets(buffer, sizeof(buffer), pipe)) {
-        cstring_append(&result, buffer);
+        string_append(&str, buffer);
     }
 
     pclose(pipe);
 
     print_log("Finished fetching", url);
 
-    if (cstring_is_empty(&result)) {
+    if (string_empty(&str)) {
         printf("Fetched HTML is empty for: %s\n", url);
     }
 
-    return result;
+    return str;
 }

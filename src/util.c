@@ -1,7 +1,11 @@
+#include "../include/structure/string_t.h"
 #include "../include/util.h"
-#include "../include/structure/cstring.h"
 #include <string.h>
+#include <time.h>
 #include <stdio.h>
+
+
+static char buffer[32];
 
 
 /*
@@ -30,12 +34,12 @@ void extract_file_numbers(const char* filepath, int* primary, int* secondary) {
  * Comparison function for qsort to sort CString items by their filename numbers.
  * Sorts ascendingly by the primary number, then by the secondary number.
  */
-int compare_numbered_filenames(const void* a, const void* b) {
+bool compare_numbered_filenames(const void* a, const void* b) {
     /* * Since the Vector stores CString structs by value, the pointers 
      * passed by qsort point directly to the CString elements.
      */
-    const CString* str_a = (const CString*) a;
-    const CString* str_b = (const CString*) b;
+    const string_t* str_a = (const string_t*) a;
+    const string_t* str_b = (const string_t*) b;
 
     int primary_a = 0, secondary_a = 0;
     int primary_b = 0, secondary_b = 0;
@@ -51,4 +55,18 @@ int compare_numbered_filenames(const void* a, const void* b) {
 
     /* Secondary sort: if primary numbers are equal, compare the sub-number */
     return secondary_a - secondary_b;
+}
+
+
+void sleep_ms(int milliseconds) {
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
+
+char* size_t_to_string(const size_t i) {
+    snprintf(buffer, 32, "%zu", i);
+    return buffer;
 }

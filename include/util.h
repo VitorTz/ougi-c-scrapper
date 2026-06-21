@@ -1,5 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
+#include <stdbool.h>
+#include "structure/vector.h"
+#include "structure/path.h"
 
 /*
  * Parses the primary and secondary numbers from the filename.
@@ -12,6 +15,29 @@ void extract_file_numbers(const char* filepath, int* primary, int* secondary);
  * Comparison function for qsort to sort CString items by their filename numbers.
  * Sorts ascendingly by the primary number, then by the secondary number.
  */
-int compare_numbered_filenames(const void* a, const void* b);
+bool compare_numbered_filenames(const void* a, const void* b);
 
+
+void sleep_ms(int milliseconds);
+
+char* size_t_to_string(size_t i);
+
+/* Safe min/max macros using compiler extensions (GCC/Clang).
+ * Variables are evaluated only once, preventing side-effect bugs 
+ * when passing expressions like i++ or function calls. */
+#define MIN(a, b) \
+    ({ \
+        __typeof__(a) _a = (a); \
+        __typeof__(b) _b = (b); \
+        _a < _b ? _a : _b; \
+    })
+
+#define MAX(a, b) \
+    ({ \
+        __typeof__(a) _a = (a); \
+        __typeof__(b) _b = (b); \
+        _a > _b ? _a : _b; \
+    })
+
+    
 #endif

@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <utime.h>
@@ -6,31 +7,43 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <errno.h>
 #include <webp/types.h>
 
 #include "../../include/structure/path.h"
+#include "../../include/structure/vector.h"
 
 
-Path path_create(const char* initial_path) {
-    return cstring_create(initial_path);
+
+path_t path_create(const char* initial_path) {
+    string_t str = string_new();
+    string_assign(&str, initial_path);
+    return str;
 }
 
 
-Path path_create_copy(const Path* path) {
+path_t path_tmp() {
+    const path_t path = path_create("tmp");
+    path_create_directories(&path);
+    return path;
+}
+
+
+path_t path_create_copy(const path_t* path) {
     return path_create(path->data);
 }
 
 
-Path path_create_empty() {
+path_t path_create_empty() {
     return path_create("");
 }
 
 
-Path path_create_current_dir(void) {
+path_t path_create_current_dir(void) {
     char* cwd = getcwd(NULL, 0);
     
     if (cwd != NULL) {
-        Path current_path = path_create(cwd);
+        path_t current_path = path_create(cwd);
         free(cwd);
         
         return current_path;
@@ -40,42 +53,88 @@ Path path_create_current_dir(void) {
 }
 
 
-void path_destroy(Path* path) {
-    cstring_destroy(path);
+void path_destroy(path_t* path) {
+    string_free(path);
 }
 
 
-void path_append(Path* p, const char* component) {
+void path_append(path_t* p, const char* component) {
     if (!component || strlen(component) == 0) {
         return;
     }
 
-    bool path_ends_with_sep = (p->size > 0 && p->data[p->size - 1] == PATH_SEPARATOR);
+    bool path_ends_with_sep = string_ends_with(p, PATH_SEPARATOR_STR);
     bool comp_starts_with_sep = (component[0] == PATH_SEPARATOR);
 
-    if (!path_ends_with_sep && !comp_starts_with_sep && p->size > 0) {
-        cstring_push_back(p, PATH_SEPARATOR);
+    if (!path_ends_with_sep && !comp_starts_with_sep && !string_empty(p)) {
+        string_push_back(p, PATH_SEPARATOR);
     } else if (path_ends_with_sep && comp_starts_with_sep) {
         component++;
     }
-
-    cstring_append(p, component);
+    string_append(p, component);
 }
 
 
-const char* path_c_str(const Path* p) {
-    return cstring_c_str(p);
+const char* path_c_str(const path_t* p) {
+    return string_cstr(p);
 }
 
 
-char* path_filename(const Path* p) {
+char* path_filename(const path_t* p) {
     const char* last_sep = strrchr(p->data, PATH_SEPARATOR);
     if (last_sep) { return strdup(last_sep + 1); }
     return strdup(p->data);
 }
 
+char* path_stem(const path_t* path) {
+    if (!path || !path->data) {
+        return NULL;
+    }
 
-char* path_extension(const Path* p) {
+    const char* start = path->data;
+    const char* end = path->data + path->length;
+
+    /* Find the last path separator to isolate the filename */
+    const char* last_sep = strrchr(path->data, PATH_SEPARATOR);
+    
+    if (last_sep) {
+        /* Move the start pointer right after the separator */
+        start = last_sep + 1;
+    }
+
+    /* Find the last dot in the isolated filename */
+    const char* last_dot = strrchr(start, '.');
+
+    /* Determine the end of the stem.
+     * The condition (last_dot != start) ensures that hidden files 
+     * like ".env" or ".gitignore" are treated entirely as the stem, 
+     * rather than an empty stem with a long extension.
+     */
+    if (last_dot && last_dot != start) {
+        end = last_dot;
+    }
+
+    /* Calculate the length of the stem */
+    size_t stem_len = (size_t)(end - start);
+
+    /* Allocate memory for the stem plus the null terminator */
+    char* stem = (char*)malloc(stem_len + 1);
+    
+    if (!stem) {
+        return NULL; /* Memory allocation failed */
+    }
+
+    /* Copy the characters and append the null terminator */
+    if (stem_len > 0) {
+        memcpy(stem, start, stem_len);
+    }
+    stem[stem_len] = '\0';
+
+    return stem;
+}
+
+
+char* path_extension(const path_t* p) {
     char* filename = path_filename(p);
     char* dot = strrchr(filename, '.');
     char* ext = NULL;
@@ -91,20 +150,14 @@ char* path_extension(const Path* p) {
 }
 
 
-Path path_parent_path(const Path* p) {
-    Path result = path_create("");
-    const char* last_sep = strrchr(p->data, PATH_SEPARATOR);
-    if (last_sep == p->data) {
-        cstring_assign(&result, PATH_SEPARATOR_STR);
-    } else if (last_sep != NULL) {
-        cstring_assign_substr(&result, p->data, last_sep - p->data);
-    }
-    return result;
+path_t path_parent_path(const path_t* p) {
+    const size_t last_sep_index = string_rfind(p, PATH_SEPARATOR_STR);
+    return string_from(p->data + last_sep_index);
 }
 
 
-void path_change_extension(Path* p, const char* new_extension) {
-    if (!p || !p->data || p->size == 0 || !new_extension) {
+void path_change_extension(path_t* p, const char* new_extension) {
+    if (!p || !p->data || p->length == 0 || !new_extension) {
         return;
     }
 
@@ -121,15 +174,15 @@ void path_change_extension(Path* p, const char* new_extension) {
     if (dot && dot != filename) {
         const size_t dot_index = (size_t)(dot - p->data);
         p->data[dot_index] = '\0';
-        p->size = dot_index;
+        p->length = dot_index;
     }
 
-    cstring_append(p, new_extension);
+    string_append(p, new_extension);
 }
 
 
-Path path_absolute(const Path* p) {
-    Path path = path_create_empty();
+path_t path_absolute(const path_t* p) {
+    path_t path = string_new();
     if (!p || !p->data) {
         return path;
     }
@@ -137,22 +190,22 @@ Path path_absolute(const Path* p) {
     char* resolved_str = realpath(p->data, NULL);
 
     if (resolved_str != NULL) {
-        path_append(&path, resolved_str);
+        string_assign(&path, resolved_str);
         free(resolved_str);
     }
 
     return path;
 }
 
-bool path_exists(const Path* p) {
-    if (!p || !p->data) { return false; }    
+bool path_exists(const path_t* p) {
+    if (!p || !p->data) { return false; }
     struct stat buffer;
     /* stat() returns 0 on success (file exists and is accessible) */
     return (stat(p->data, &buffer) == 0);
 }
 
 
-bool path_is_dir(const Path* p) {
+bool path_is_dir(const path_t* p) {
     if (!p || !p->data) {
         return false;
     }
@@ -165,7 +218,7 @@ bool path_is_dir(const Path* p) {
     return S_ISDIR(buffer.st_mode);
 }
 
-bool path_is_regular_file(const Path* p) {
+bool path_is_regular_file(const path_t* p) {
     if (!p || !p->data) {
         return false;
     }
@@ -178,7 +231,7 @@ bool path_is_regular_file(const Path* p) {
     return S_ISREG(buffer.st_mode);
 }
 
-bool path_touch(const Path* p) {
+bool path_touch(const path_t* p) {
     if (!p || !p->data) {
         return false;
     }
@@ -200,16 +253,97 @@ bool path_touch(const Path* p) {
     return false;
 }
 
+bool path_create_directories(const path_t* p) {
+    if (!p || !p->data || p->length == 0) {
+        return false;
+    }
 
-bool path_move(const Path* src, const Path* dest) {
+    char* tmp = strdup(p->data);
+    if (!tmp) { return false; }
+
+    bool success = true;
+
+    /* * Start at index 1 (tmp + 1) to safely handle absolute paths.
+     * If the path starts with '/', we don't want to attempt mkdir("").
+     */
+    for (char* it = tmp + 1; *it != '\0'; it++) {
+        if (*it == PATH_SEPARATOR) {
+            /* Temporarily truncate the string to represent the parent directory */
+            *it = '\0';
+
+            /* * 0777 grants maximum permissions, but the OS automatically 
+             * filters it through the user's 'umask' for secure defaults.
+             */
+            if (mkdir(tmp, 0777) != 0) {
+                /* If mkdir fails, it is only acceptable if the directory already exists */
+                if (errno != EEXIST) {
+                    success = false;
+                    break;
+                }
+            }
+
+            /* Restore the separator to continue advancing down the path */
+            *it = PATH_SEPARATOR;
+        }
+    }
+
+    /* Attempt to create the final component of the path */
+    if (success) {
+        if (mkdir(tmp, 0777) != 0 && errno != EEXIST) {
+            success = false;
+        }
+    }
+
+    free(tmp);
+    return success;
+}
+
+
+bool path_move(const path_t* src, const path_t* dest) {
     if (!src || !src->data || !dest || !dest->data) {
         return false;
     }
     return (rename(src->data, dest->data) == 0);
 }
 
+bool path_move_directory_contents(const path_t* src_dir, const path_t* dest_dir) {
+    if (!src_dir || !dest_dir) {
+        return false;
+    }
 
-bool path_copy(const Path* src, const Path* dest) {
+    bool all_success = true;
+
+    DIR* dir = opendir(src_dir->data);
+    if (!dir) {
+        return false;
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        /* 4096 is standard PATH_MAX on most POSIX systems */
+        char old_path[4096];
+        char new_path[4096];
+
+        snprintf(old_path, sizeof(old_path), "%s/%s", src_dir->data, entry->d_name);
+        snprintf(new_path, sizeof(new_path), "%s/%s", dest_dir->data, entry->d_name);
+
+        /* rename() works for both files and directories, moving them instantly */
+        if (rename(old_path, new_path) != 0) {
+            fprintf(stderr, "[Error] Failed to move: %s\n", old_path);
+            all_success = false;
+        }
+    }
+
+    closedir(dir);
+    return all_success;
+}
+
+
+bool path_copy(const path_t* src, const path_t* dest) {
     /* Safety check for null pointers */
     if (!src || !src->data || !dest || !dest->data) {
         return false;
@@ -271,7 +405,7 @@ bool path_copy(const Path* src, const Path* dest) {
 }
 
 
-bool path_delete(const Path* p) {
+bool path_delete(const path_t* p) {
     if (!p || !p->data) {
         return false;
     }
@@ -294,7 +428,7 @@ bool path_delete(const Path* p) {
         }
 
         struct dirent* entry;
-        size_t base_len = p->size;
+        size_t base_len = p->length;
         bool needs_separator = (base_len > 0 && p->data[base_len - 1] != PATH_SEPARATOR);
 
         while ((entry = readdir(dir)) != NULL) {
@@ -316,7 +450,7 @@ bool path_delete(const Path* p) {
                 }
 
                 /* Create a temporary Path struct and recursively delete it */
-                Path child_path = path_create(child_str);
+                path_t child_path = path_create(child_str);
                 path_delete(&child_path);
                 path_destroy(&child_path);
                 
@@ -334,9 +468,50 @@ bool path_delete(const Path* p) {
     }
 }
 
+/* * Internal helper to perform the actual recursive deletion using raw C strings.
+ * This avoids dependency on your specific string_t append/manipulation functions.
+ */
+static bool internal_remove_recursive(const char* dir_path, bool remove_root) {
 
-Vector path_dir_iterator(const Path* p, SortFunc sort_func, FilterFunc filter_func) {
-    Vector entries = vector_create(sizeof(Path), 4);
+    DIR* dir = opendir(dir_path);
+    if (!dir) { return false; }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char child_path[4096];
+        snprintf(child_path, sizeof(child_path), "%s/%s", dir_path, entry->d_name);
+
+        struct stat statbuf;
+        if (stat(child_path, &statbuf) == 0) {
+            /* Check if the current entry is a directory */
+            if (S_ISDIR(statbuf.st_mode)) {
+                internal_remove_recursive(child_path, true); /* Recursively delete sub-directory */
+            } else {
+                unlink(child_path); /* Delete standard file */
+            }
+        }
+    }
+    closedir(dir);
+
+    if (remove_root) {
+        return rmdir(dir_path) == 0;
+    }
+    return true;
+}
+
+
+bool path_delete_recursive(const path_t* path, const bool keep_root_dir) {
+    if (!path || !path->data) { return false; }
+    return internal_remove_recursive(path->data, !keep_root_dir);
+}
+
+
+path_t* path_dir_iterator(const path_t* p, SortFunc sort_func, FilterFunc filter_func) {
+    path_t* entries = NULL;
 
     if (!p || !p->data || !path_is_dir(p)) {
         return entries;
@@ -347,7 +522,7 @@ Vector path_dir_iterator(const Path* p, SortFunc sort_func, FilterFunc filter_fu
     if (!dir) { return entries; }
 
     struct dirent* entry;
-    const size_t parent_len = p->size; 
+    const size_t parent_len = p->length; 
     
     /* Check if the parent path already ends with a separator */
     const bool needs_separator = (parent_len > 0 && p->data[parent_len - 1] != PATH_SEPARATOR);
@@ -372,29 +547,154 @@ Vector path_dir_iterator(const Path* p, SortFunc sort_func, FilterFunc filter_fu
                 snprintf(full_path, full_len, "%s%s", p->data, entry->d_name);
             }
             
-            const Path tmp = path_create(full_path);            
+            const path_t tmp = path_create(full_path);
             if (!filter_func || filter_func(&tmp)) {
-                vector_push_back(&entries, &tmp);
+                vec_push_back(entries, tmp);
             }
         }
     }
 
     closedir(dir);
-    if (sort_func != NULL) { vector_sort(&entries, sort_func); }
+    if (sort_func != NULL) { 
+        vec_sort(entries, sort_func);
+    }
     return entries;
 }
 
 
-void path_dir_iterator_free(const Vector* entries) {
-    if (!entries) { return; }
-    
-    Path* it = NULL;
-    VECTOR_FOREACH(Path, it, entries) {
-        path_destroy(it);
+void path_dir_iterator_free(path_t* entries) {
+    if (!entries) { return; }    
+    vec_foreach(path_t, item, entries) {
+        path_destroy(item);
     }
 }
 
 
-void path_print(const Path* p) {
-    cstring_print(p);
+Read path_read_bytes(const path_t* path) {
+    Read read = {0};
+
+    if (!path || !path_exists(path)) { return read; }
+
+    FILE* f = fopen(path->data, "rb");
+    if (!f) {
+        fprintf(stderr, "[Error] Cannot open file for reading: %s\n", path->data);
+        return read;
+    }
+
+    // Determine exact file size
+    fseek(f, 0, SEEK_END);
+    size_t file_size = ftell(f);
+    rewind(f);
+
+    if (file_size <= 0) {
+        fclose(f);
+        return read;
+    }
+    
+    // Malloc
+    read.data = malloc(sizeof(uint8_t) * file_size);
+
+    // Read
+    read.bytes = fread(read.data, sizeof(uint8_t), file_size, f);
+    read.success = read.bytes == file_size;
+
+    fclose(f);
+    return read;
+}
+
+
+string_t path_read_text(const path_t* file_path) {
+    string_t str = string_new();
+
+    if (!file_path || !file_path->data) {
+        return str;
+    }
+
+    /* Open in text mode */
+    FILE* f = fopen(file_path->data, "r");
+    if (!f) {
+        fprintf(stderr, "[Error] Cannot open file for text reading: %s\n", file_path->data);
+        return str;
+    }
+
+    char buffer[4096];
+    
+    /* * Read the file in chunks. 
+     * We read sizeof(buffer) - 1 to guarantee space for a temporary null terminator 
+     * if cstring_append requires it, though fread doesn't append '\0' naturally.
+     */
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer) - 1, f)) > 0) {
+        buffer[bytes_read] = '\0'; /* Temporarily terminate the chunk */
+        string_append(&str, buffer);
+    }
+    
+    fclose(f);
+    
+    return str;
+}
+
+
+bool path_write_text(const path_t* path, const char* text) {
+    if (!path || !path->data || !text) {
+        return false;
+    }
+
+    /* Extract the parent directory and ensure it exists */
+    path_t parent_dir = path_parent_path(path);
+    if (parent_dir.length > 0 && parent_dir.data != NULL) {
+        path_create_directories(&parent_dir);
+    }
+    path_destroy(&parent_dir);
+
+    /* Open the file in text write mode */
+    FILE* f = fopen(path->data, "w");
+    if (!f) {
+        fprintf(stderr, "[Error] Cannot open for text writing: %s\n", path->data);
+        return false;
+    }
+
+    bool success = true;
+    
+    /* Write the text only if the string is not empty */
+    if (text[0] != '\0') {
+        /* fputs returns EOF if a write error occurs */
+        if (fputs(text, f) == EOF) {
+            success = false;
+        }
+    }
+
+    fclose(f);
+    return success;
+}
+
+
+bool path_write_bytes(const path_t* path, const uint8_t* data, const size_t size) {
+    if (!path || !path->data || !data || !data) {
+        return false;
+    }
+
+    /* Open the file in binary write mode */
+    FILE* f = fopen(path->data, "wb");
+    if (!f) {
+        fprintf(stderr, "[Error] Cannot open for binary writing: %s\n", path->data);
+        return false;
+    }
+
+    size_t bytes_written = 0;
+    
+    /* Write the binary data block to the file */
+    if (size > 0) {
+        bytes_written = fwrite(data, 1, size, f);
+    }
+
+    fclose(f);
+    
+    /* Return true only if the exact amount of expected bytes was written to disk */
+    return (bytes_written == size);
+}
+
+
+void path_print(const path_t* p) {
+    printf("%s\n", p->data);
 }
