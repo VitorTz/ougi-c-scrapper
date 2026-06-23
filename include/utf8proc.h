@@ -790,10 +790,12 @@ utf8proc_category_string(utf8proc_int32_t codepoint);
  * `utf8proc_reencode`, and applications requiring greater control over memory
  * allocation should instead call those two functions directly.
  */
-UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_map(const utf8proc_uint8_t *str,
-                                                 utf8proc_ssize_t strlen,
-                                                 utf8proc_uint8_t **dstptr,
-                                                 utf8proc_option_t options);
+UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_map(
+  const utf8proc_uint8_t *str,
+  utf8proc_ssize_t strlen,
+  utf8proc_uint8_t **dstptr,
+  utf8proc_option_t options
+);
 
 /**
  * Like @ref utf8proc_map, but also takes a `custom_func` mapping function

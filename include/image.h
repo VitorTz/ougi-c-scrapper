@@ -27,7 +27,7 @@
 #include "structure/path.h"
 #include "structure/string_t.h"
 #include "arena.h"
-#include "stb/image_info.h"
+#include "image_info.h"
 
 
 typedef struct PixelBuffer {

@@ -1,7 +1,9 @@
 .vscode/
+.idea/
 bin/
 build/
 vendor/
 res/*-test
 res/source.json
 tmp/
+include/env.h

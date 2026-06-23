@@ -3,6 +3,7 @@
 
 #include "../structure/string_t.h"
 #include "../structure/path.h"
+#include "../cjson/cJSON.h"
 #include "source.h"
 
 
@@ -11,8 +12,8 @@ typedef struct  {
     string_t slug;
     string_t descr;
     string_t cover;
-    path_t folderPath;
-    path_t cover_img_path;
+    path_t path;
+    path_t img_path;
     string_t id;
     string_t hex_color;
     string_t url;

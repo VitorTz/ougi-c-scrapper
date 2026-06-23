@@ -4,6 +4,25 @@
 #include "../../include/type_to_str.h"
 
 
+
+static ChapterScrap create_chapter_scrap(
+    ManhwaScrap* manhwa,
+    const string_t* link, 
+    const float chapter_num
+) {
+    path_t chap_path = path_create_copy(&manhwa->path);
+    path_append(&chap_path, float_to_string(chapter_num));
+    path_create_directories(&chap_path);
+    const ChapterScrap ch = {
+        .manhwa = manhwa,
+        .url = string_clone(link),
+        .path = chap_path,
+        .num = chapter_num
+    };
+    return ch;
+}
+
+
 static void scrap_chapters(Scrapper* self) {
     string_t html = fetch_html(
         string_cstr(&self->manhwa->url),
@@ -15,20 +34,14 @@ static void scrap_chapters(Scrapper* self) {
     string_t* links = extract_links(root, "li", NULL, "wp-manga-chapter");
     vec_reverse(links);
     
-    float i = 0.0f;
+    float chapter_num = 0.0f;
     vec_clear(self->chapters);
     vec_foreach(string_t, item, links) {
-        float num = i++;
-        path_t chap_path = path_create_copy(&self->manhwa->folderPath);
-        path_append(&chap_path, float_to_string(i));
-        path_create_directories(&chap_path);
-        const ChapterScrap ch = {
-            .manhwa = self->manhwa,
-            .url = string_clone(item),
-            .path = chap_path,
-            .num = num
-        };
-        vec_push_back(self->chapters, ch);
+        vec_push_back(self->chapters, create_chapter_scrap(
+            self->manhwa, 
+            item, 
+            chapter_num++
+        ));
     }
 }
 

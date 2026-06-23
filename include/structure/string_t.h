@@ -35,11 +35,10 @@
 #ifndef STRING_T_H
 #define STRING_T_H
 
+#include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #define STRING_NPOS ((size_t)-1)   /* equivalente a std::string::npos */
 
@@ -96,7 +95,7 @@ void string_append_string(string_t *s, const string_t *other); /* operator+=(con
 void string_append_format(string_t *s, const char *fmt, ...) STRING__PRINTF_FMT(2, 3);
 
 /* pos deve ser <= length(); comportamento indefinido caso contrario
- * (mesma convencao do vector.h, sem checagem por performance) */
+* (mesma convencao do vector.h, sem checagem por performance) */
 void string_insert(string_t *s, size_t pos, const char *cstr);
 
 /* pos > length(): no-op. len alem do fim: truncado (igual std::string::erase) */
@@ -112,6 +111,10 @@ void string_trim_left(string_t *s);
 void string_trim_right(string_t *s);
 void string_to_upper(string_t *s);     /* in-place, ASCII (via toupper) */
 void string_to_lower(string_t *s);     /* in-place, ASCII (via tolower) */
+void string_strip_char(string_t *str, char c); // Helper function to trim a specific character from both ends
+void string_remove_accents_and_non_ascii(string_t *str);
+string_t string_slugify(string_t* str);
+void string_normalize(string_t *str);
 
 /* ---------- operacoes ---------- */
 int  string_compare(const string_t *a, const string_t *b);       /* como strcmp: <0, 0, >0 */
@@ -144,13 +147,27 @@ int string_contains(const string_t *s, const char *needle);
  */
 string_t *string_split(const string_t *s, char delim);
 
-void      string_array_free(string_t **arr);
+void string_array_free(string_t **arr);
 
 void string_print(const string_t* s);
 
-
-#ifdef __cplusplus
+static inline size_t string_hash(const void *key) {
+    const string_t* str = (const string_t*) key;
+    const char* s = string_cstr(str);
+    size_t h = (size_t)14695981039346656037ULL;
+    while (*s) {
+        h ^= (uint8_t)(*s++);
+        h *= (size_t)1099511628211ULL;
+    }
+    return h;
 }
-#endif
+
+static inline int string_eq(const void *a, const void *b) {
+    const string_t* s1 = (const string_t*) a;
+    const string_t* s2 = (const string_t*) b;
+    const char *sa = string_cstr(s1);
+    const char *sb =string_cstr(s2);
+    return strcmp(sa, sb) == 0;
+}
 
 #endif /* STRING_T_H */

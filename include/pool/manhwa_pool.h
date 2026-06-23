@@ -5,10 +5,7 @@
 
 void manhwa_pool_init();
 
-
-ManhwaScrap* manhwa_pool_get(const char* title);
-
-void manhwa_pool_put(ManhwaScrap* manhwa);
+ManhwaScrap* manhwa_pool_get(const string_t* title);
 
 void manhwa_pool_close();
 

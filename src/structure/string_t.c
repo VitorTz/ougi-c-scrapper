@@ -1,5 +1,6 @@
 #include "../../include/structure/vector.h"
 #include "../../include/structure/string_t.h"
+#include "../../include/utf8proc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -293,6 +294,162 @@ void string_to_lower(string_t *s) {
     for (size_t i = 0; i < s->length; i++)
         s->data[i] = (char)tolower((unsigned char)s->data[i]);
 }
+
+void string_strip_char(string_t *str, char c) {
+    if (!str || !str->data || str->length == 0) return;
+
+    size_t start = 0;
+    while (start < str->length && str->data[start] == c) {
+        start++;
+    }
+
+    if (start == str->length) {
+        str->length = 0;
+        str->data[0] = '\0';
+        return;
+    }
+
+    size_t end = str->length - 1;
+    while (end > start && str->data[end] == c) {
+        end--;
+    }
+
+    size_t new_len = end - start + 1;
+    if (start > 0) {
+        memmove(str->data, str->data + start, new_len);
+    }
+    str->length = new_len;
+    str->data[str->length] = '\0';
+}
+
+void string_remove_accents_and_non_ascii(string_t *str) {
+    // 1. Perform manual replacements using hardcoded UTF-8 byte sequences
+    string_t temp = string_new();
+    
+    size_t i = 0;
+    while (i < str->length) {
+        if (i + 1 < str->length) {
+            unsigned char c1 = (unsigned char)str->data[i];
+            unsigned char c2 = (unsigned char)str->data[i+1];
+            
+            // æ (C3 A6) -> ae, Æ (C3 86) -> AE
+            // ø (C3 B8) -> o,  Ø (C3 98) -> O
+            // ß (C3 9F) -> ss
+            // đ (C4 91) -> d,  Đ (C4 90) -> D
+            if (c1 == 0xC3 && c2 == 0xA6) { string_append_n(&temp, "ae", 2); i += 2; continue; }
+            if (c1 == 0xC3 && c2 == 0x86) { string_append_n(&temp, "AE", 2); i += 2; continue; }
+            if (c1 == 0xC3 && c2 == 0xB8) { string_append_char(&temp, 'o'); i += 2; continue; }
+            if (c1 == 0xC3 && c2 == 0x98) { string_append_char(&temp, 'O'); i += 2; continue; }
+            if (c1 == 0xC3 && c2 == 0x9F) { string_append_n(&temp, "ss", 2); i += 2; continue; }
+            if (c1 == 0xC4 && c2 == 0x91) { string_append_char(&temp, 'd'); i += 2; continue; }
+            if (c1 == 0xC4 && c2 == 0x90) { string_append_char(&temp, 'D'); i += 2; continue; }
+        }
+        string_append_char(&temp, str->data[i]);
+        i++;
+    }
+
+    // 2. Map the string to NFD using utf8proc
+    utf8proc_uint8_t *raw = NULL;
+    utf8proc_ssize_t len = utf8proc_map(
+        (const utf8proc_uint8_t *)temp.data,
+        temp.length,
+        &raw,
+        (utf8proc_option_t)(UTF8PROC_DECOMPOSE | UTF8PROC_STABLE)
+    );
+
+    free(temp.data); // Free the intermediate replacement string
+
+    if (len < 0 || !raw) {
+        // Fallback: clear the string if utf8proc fails
+        str->length = 0;
+        if (str->capacity > 0) str->data[0] = '\0';
+        return;
+    }
+
+    // 3. Clear original string and append only ASCII characters
+    str->length = 0;
+    for (utf8proc_ssize_t j = 0; j < len; j++) {
+        if (raw[j] < 0x80) {
+            string_append_char(str, (char)raw[j]);
+        }
+    }
+    
+    free(raw); // Free utf8proc allocated memory
+}
+
+void string_normalize(string_t *str) {
+    string_remove_accents_and_non_ascii(str);
+    string_to_lower(str);
+    string_trim(str);
+}
+
+string_t string_slugify(string_t* str) {
+    // Return an empty string_t if input is invalid
+    if (!str || !str->data) {
+        string_t empty = { NULL, 0, 0 };
+        return empty;
+    }
+
+    // Clone the initial string to mimic C++ pass-by-value semantics
+    string_t result;
+    result.length = str->length;
+    result.capacity = str->length;
+    result.data = malloc(result.capacity + 1);
+    
+    if (result.data) {
+        memcpy(result.data, str->data, result.length);
+        result.data[result.length] = '\0';
+    } else {
+        return result; // Allocation failure
+    }
+
+    // Apply normalization steps
+    string_normalize(&result);
+    string_strip_char(&result, '-');
+
+    // Filter invalid characters in-place (keeps a-z, A-Z, 0-9, space, hyphen)
+    size_t write_idx = 0;
+    for (size_t i = 0; i < result.length; i++) {
+        char c = result.data[i];
+        if (isalnum((unsigned char)c) || c == ' ' || c == '-') {
+            result.data[write_idx++] = c;
+        }
+    }
+    result.length = write_idx;
+    result.data[result.length] = '\0';
+
+    // Replace multiple spaces/hyphens with a single hyphen into a final string
+    string_t final_res = { NULL, 0, 0 };
+    final_res.capacity = result.length;
+    final_res.data = malloc(final_res.capacity + 1);
+    
+    if (!final_res.data) {
+        free(result.data);
+        return final_res; // Allocation failure
+    }
+
+    int last_was_hyphen = 0;
+    for (size_t i = 0; i < result.length; i++) {
+        char c = result.data[i];
+        if (c == ' ' || c == '-') {
+            if (!last_was_hyphen) {
+                final_res.data[final_res.length++] = '-';
+                last_was_hyphen = 1;
+            }
+        } else {
+            final_res.data[final_res.length++] = c;
+            last_was_hyphen = 0;
+        }
+    }
+    final_res.data[final_res.length] = '\0';
+
+    // Cleanup the intermediate working string
+    free(result.data);
+
+    // The caller is now responsible for freeing final_res.data
+    return final_res;
+}
+
 
 /* ================= operacoes ================= */
 

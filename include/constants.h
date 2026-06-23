@@ -9,6 +9,7 @@
 #define WINDOW_FPS 120
 
 #define MANHWA_PATH_CSTR "/mnt/HD/Documents/Manhwa"
+#define MANHWA_SOURCE_PATH "res/source.json"
 
 #define DEFAULT_REFERER "https://www.google.com/"
 #define DEFAULT_IMG_QUALITY 90.f
