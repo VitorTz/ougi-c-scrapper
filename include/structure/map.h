@@ -94,7 +94,7 @@ static inline void hm__alloc_error(void) {
 }
 
 /* ---------- helpers de layout ---------- */
-static inline uint8_t *hm__states(void *entries, size_t capacity, size_t entry_size) {
+static inline uint8_t *hm__states(void *entries, const size_t capacity, const size_t entry_size) {
     return (uint8_t *)entries + capacity * entry_size;
 }
 
@@ -106,8 +106,14 @@ static inline size_t hm__next_pow2(size_t n) {
 
 /* ---------- busca o slot de uma chave (leitura) ----------
  * retorna o indice se encontrado, ou (size_t)-1 caso contrario. */
-static inline size_t hm__find(void *entries, size_t capacity, size_t entry_size,
-                               const void *key, hashmap_hash_fn hash_fn, hashmap_eq_fn eq_fn) {
+static inline size_t hm__find(
+    void *entries, 
+    const size_t capacity, 
+    const size_t entry_size,
+    const void *key, 
+    hashmap_hash_fn hash_fn, 
+    hashmap_eq_fn eq_fn
+) {
     if (capacity == 0) return (size_t)-1;
     uint8_t *states = hm__states(entries, capacity, entry_size);
     size_t mask = capacity - 1;
@@ -160,7 +166,7 @@ static inline size_t hm__find_slot_for_insert(
 /* ---------- garante espaco para mais um elemento (rehash completo se necessario) ---------- */
 static inline void *hm__maybe_grow(
     void *entries, 
-    size_t entry_size,
+    const size_t entry_size,
     hashmap_hash_fn hash_fn, 
     hashmap_eq_fn eq_fn
 ) {
@@ -256,6 +262,49 @@ static inline int hm__remove(
     return 1;
 }
 
+/* avança _hm_it até o próximo slot OCCUPIED a partir do índice atual,
+ * retornando 1 se encontrou um, 0 se esgotou o mapa. */
+static inline int hm__iter_next(
+    void    *entries,
+    size_t   capacity,
+    size_t   entry_size,
+    size_t  *i,       /* in/out: índice atual */
+    void   **out      /* out: ponteiro para a entrada */
+) {
+    uint8_t *states = hm__states(entries, capacity, entry_size);
+    while (*i < capacity) {
+        size_t cur = (*i)++;
+        if (states[cur] == HM__OCCUPIED) {
+            *out = (char *)entries + cur * entry_size;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+typedef struct { size_t i; } hm_iter_t;
+
+#define hm_iter(m)  ((hm_iter_t){ 0 })
+
+#define hm_iter_next(it, m)                                             \
+    ((__typeof__(m)) hm__iter_next_impl(                                \
+        (it), (m), HM__HDR(m)->capacity, sizeof(*(m))))
+
+static inline void *hm__iter_next_impl(
+    hm_iter_t *it,
+    void      *entries,
+    size_t     capacity,
+    size_t     entry_size
+) {
+    uint8_t *states = hm__states(entries, capacity, entry_size);
+    while (it->i < capacity) {
+        size_t cur = it->i++;
+        if (states[cur] == HM__OCCUPIED)
+            return (char *)entries + cur * entry_size;
+    }
+    return NULL;
+}
+
 /* ================= API ================= */
 
 /* cria o mapa vazio. deve ser chamado antes de qualquer outra operacao,
@@ -310,11 +359,19 @@ static inline int hm__remove(
         HM__HDR(m)->tombstones = 0; \
     } while (0)
 
-/* itera sobre as entradas ocupadas: hashmap_foreach(Entrada, e, mapa) { ... e->key ... e->value ... } */
-#define hashmap_foreach(type, item, m) \
-    for (size_t _hm_i = 0; _hm_i < HM__HDR(m)->capacity; _hm_i++) \
-        if (hm__states((m), HM__HDR(m)->capacity, sizeof(*(m)))[_hm_i] == HM__OCCUPIED) \
-            for (type *item = &(m)[_hm_i]; item; item = NULL)
+/* itera sobre as entradas ocupadas. break/continue funcionam corretamente.
+ *
+ *   hashmap_foreach(Entrada, e, mapa) {
+ *       printf("%d -> %f\n", e->key, e->value);
+ *   }
+ */
+#define hashmap_foreach(type, item, m)                                      \
+    for (                                                                    \
+        struct { size_t i; type *p; } _hm_it = { 0, NULL };                \
+        hm__iter_next((m), HM__HDR(m)->capacity, sizeof(*(m)),              \
+                      &_hm_it.i, (void **)&_hm_it.p);                      \
+    )                                                                        \
+        for (type *item = _hm_it.p; item; item = NULL)
 
 /* ---------- hashers/comparadores prontos ---------- */
 

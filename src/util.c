@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 
-static char buffer[32];
+static char buffer[256];
 
 
 /*
@@ -63,10 +63,4 @@ void sleep_ms(int milliseconds) {
     ts.tv_sec = milliseconds / 1000;
     ts.tv_nsec = (milliseconds % 1000) * 1000000;
     nanosleep(&ts, NULL);
-}
-
-
-char* size_t_to_string(const size_t i) {
-    snprintf(buffer, 32, "%zu", i);
-    return buffer;
 }

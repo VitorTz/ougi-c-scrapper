@@ -185,7 +185,9 @@ void string_assign_n(string_t *s, const char *data, size_t n) {
 }
 
 void string_assign(string_t *s, const char *cstr) {
-    string_assign_n(s, cstr, cstr ? strlen(cstr) : 0);
+    if (cstr) {
+        string_assign_n(s, cstr, cstr ? strlen(cstr) : 0);
+    }
 }
 
 void string_append_n(string_t *s, const char *data, size_t n) {

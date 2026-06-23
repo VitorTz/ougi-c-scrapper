@@ -2,5 +2,6 @@
 bin/
 build/
 vendor/
-res/img-test
+res/*-test
+res/source.json
 tmp/

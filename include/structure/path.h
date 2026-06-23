@@ -25,11 +25,15 @@ path_t path_create_empty();
 
 path_t path_create_current_dir();
 
+path_t path_manhwa_root_dir();
+
 /* Frees the memory used by the path */
 void path_destroy(path_t* p);
 
 /* Appends a new component to the path (equivalent to operator/= or append) */
 void path_append(path_t* p, const char* component);
+
+void path_append_char(path_t* p, const char c);
 
 /* Returns the C-style string representation (equivalent to c_str()) */
 const char* path_c_str(const path_t* p);
@@ -135,9 +139,8 @@ void path_dir_iterator_free(path_t* vec);
 Read path_read_bytes(const path_t* path);
 
 /*
- * Reads an entire text file and returns it as a null-terminated CString.
- * Uses text mode ("r") to automatically handle Windows CRLF line endings.
- * Returns an empty CString if the file cannot be opened.
+ * Reads an entire text file and returns it as a null-terminated string_t. 
+ * Returns an empty string_t if the file cannot be opened.
  */
 string_t path_read_text(const path_t* path);
 
@@ -162,29 +165,6 @@ bool path_write_bytes(
 );
 
 void path_print(const path_t* p);
-
-
-/*
- * PATH_DIR_FOREACH: Safely iterates over a directory path.
- * Automatically allocates the Vector and frees it when the loop terminates 
- * (naturally or via 'break').
- * * Parameters:
- * it_name  - The variable name for the current Path* inside the loop.
- * path_ptr - Pointer to the target Path.
- * sort_f   - SortFunc callback (or NULL).
- * filter_f - FilterFunc callback (or NULL).
- */
-#define PATH_DIR_FOREACH(it_name, path_ptr, sort_f, filter_f) \
-    for (int _state_##it_name = 0; _state_##it_name < 1; ) \
-        for (Vector _entries_##it_name = path_dir_iterator((path_ptr), (sort_f), (filter_f)); \
-             _state_##it_name < 1; \
-             path_dir_iterator_free(&_entries_##it_name), _state_##it_name = 1) \
-            for (Iterator _iter_##it_name = vector_iter(&_entries_##it_name); \
-                 _state_##it_name < 1; \
-                 _state_##it_name = 1) \
-                for (Path* it_name = NULL; \
-                     (it_name = (Path*) vector_iter_next(&_iter_##it_name)) != NULL; \
-                    )
 
 
 #endif

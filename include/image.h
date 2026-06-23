@@ -40,6 +40,8 @@ typedef struct PixelBuffer {
 
 PixelBuffer load_img_from_disk(const path_t* path);
 
+void print_pixel_buffer(const PixelBuffer* buf);
+
 
 /**
  * @brief Downloads an image from a URL and streams it directly into a memory arena.

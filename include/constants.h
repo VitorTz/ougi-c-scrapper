@@ -8,6 +8,8 @@
 #define WINDOW_TITLE "Ougi Manager"
 #define WINDOW_FPS 120
 
+#define MANHWA_PATH_CSTR "/mnt/HD/Documents/Manhwa"
+
 #define DEFAULT_REFERER "https://www.google.com/"
 #define DEFAULT_IMG_QUALITY 90.f
 

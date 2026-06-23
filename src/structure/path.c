@@ -12,24 +12,38 @@
 
 #include "../../include/structure/path.h"
 #include "../../include/structure/vector.h"
+#include "../../include/constants.h"
 
+
+static void path_remove_trailing_slashes(path_t* p) {
+    if (!p || !p->data || p->length == 0) {
+        return;
+    }
+
+    while (p->length > 1 && p->data[p->length - 1] == PATH_SEPARATOR) {
+        p->length--;
+        p->data[p->length] = '\0';
+    }
+}
 
 
 path_t path_create(const char* initial_path) {
     string_t str = string_new();
     string_assign(&str, initial_path);
+    path_remove_trailing_slashes(&str);
     return str;
 }
 
 
 path_t path_tmp() {
-    const path_t path = path_create("tmp");
+    const path_t path = path_create("./tmp");
     path_create_directories(&path);
     return path;
 }
 
 
 path_t path_create_copy(const path_t* path) {
+    if (!path || !path->data) return path_create("");
     return path_create(path->data);
 }
 
@@ -39,27 +53,27 @@ path_t path_create_empty() {
 }
 
 
-path_t path_create_current_dir(void) {
+path_t path_create_current_dir() {
     char* cwd = getcwd(NULL, 0);
-    
     if (cwd != NULL) {
         path_t current_path = path_create(cwd);
         free(cwd);
-        
         return current_path;
     }
-
     return path_create_empty();
 }
 
+path_t path_manhwa_root_dir() {
+    return path_create(MANHWA_PATH_CSTR);
+}
 
 void path_destroy(path_t* path) {
-    string_free(path);
+    if (path) { string_free(path); }
 }
 
 
 void path_append(path_t* p, const char* component) {
-    if (!component || strlen(component) == 0) {
+    if (!p || !component || *component == '\0') {
         return;
     }
 
@@ -71,60 +85,52 @@ void path_append(path_t* p, const char* component) {
     } else if (path_ends_with_sep && comp_starts_with_sep) {
         component++;
     }
+    
     string_append(p, component);
+    path_remove_trailing_slashes(p);
+}
+
+void path_append_char(path_t* p, const char c) {
+    if (!p || c == '\0') { return; }
+    string_push_back(p, c);
 }
 
 
 const char* path_c_str(const path_t* p) {
-    return string_cstr(p);
+    return p ? string_cstr(p) : "";
 }
 
 
 char* path_filename(const path_t* p) {
+    if (!p || !p->data) return NULL;
     const char* last_sep = strrchr(p->data, PATH_SEPARATOR);
-    if (last_sep) { return strdup(last_sep + 1); }
-    return strdup(p->data);
+    return strdup(last_sep ? (last_sep + 1) : p->data);
 }
 
+
 char* path_stem(const path_t* path) {
-    if (!path || !path->data) {
-        return NULL;
-    }
+    if (!path || !path->data) return NULL;
 
     const char* start = path->data;
-    const char* end = path->data + path->length;
-
-    /* Find the last path separator to isolate the filename */
     const char* last_sep = strrchr(path->data, PATH_SEPARATOR);
     
     if (last_sep) {
-        /* Move the start pointer right after the separator */
         start = last_sep + 1;
     }
 
-    /* Find the last dot in the isolated filename */
+    const char* end = start + strlen(start);
     const char* last_dot = strrchr(start, '.');
 
-    /* Determine the end of the stem.
-     * The condition (last_dot != start) ensures that hidden files 
-     * like ".env" or ".gitignore" are treated entirely as the stem, 
-     * rather than an empty stem with a long extension.
-     */
+    /* Ensure we don't treat hidden files like ".env" as purely an extension */
     if (last_dot && last_dot != start) {
         end = last_dot;
     }
 
-    /* Calculate the length of the stem */
     size_t stem_len = (size_t)(end - start);
-
-    /* Allocate memory for the stem plus the null terminator */
     char* stem = (char*)malloc(stem_len + 1);
     
-    if (!stem) {
-        return NULL; /* Memory allocation failed */
-    }
+    if (!stem) return NULL;
 
-    /* Copy the characters and append the null terminator */
     if (stem_len > 0) {
         memcpy(stem, start, stem_len);
     }
@@ -136,14 +142,10 @@ char* path_stem(const path_t* path) {
 
 char* path_extension(const path_t* p) {
     char* filename = path_filename(p);
+    if (!filename) return NULL;
+
     char* dot = strrchr(filename, '.');
-    char* ext = NULL;
-    
-    if (dot && dot != filename) {
-        ext = strdup(dot);
-    } else {
-        ext = strdup("");
-    }
+    char* ext = (dot && dot != filename) ? strdup(dot) : strdup("");
     
     free(filename);
     return ext;
@@ -151,8 +153,48 @@ char* path_extension(const path_t* p) {
 
 
 path_t path_parent_path(const path_t* p) {
-    const size_t last_sep_index = string_rfind(p, PATH_SEPARATOR_STR);
-    return string_from(p->data + last_sep_index);
+    if (!p || string_empty(p)) {
+        return path_create_empty();
+    }
+
+    /* 1. Ignore trailing slashes, unless the path is exactly the root "/" */
+    size_t search_end = p->length;
+    while (search_end > 1 && p->data[search_end - 1] == PATH_SEPARATOR) {
+        search_end--;
+    }
+
+    /* 2. Find the last separator before any trailing slashes */
+    size_t last_sep_index = (size_t)-1;
+    for (size_t i = search_end; i > 0; i--) {
+        if (p->data[i - 1] == PATH_SEPARATOR) {
+            last_sep_index = i - 1;
+            break;
+        }
+    }
+
+    /* 3. If no separator exists, the parent is effectively the current directory "." */
+    if (last_sep_index == (size_t)-1) {
+        return path_create("."); 
+    }
+
+    /* 4. If the separator is at the start (e.g., "/usr"), the parent is root "/" */
+    if (last_sep_index == 0) {
+        return path_create(PATH_SEPARATOR_STR);
+    }
+
+    /* 5. Extract the substring from index 0 to last_sep_index */
+    char* parent_str = (char*)malloc(last_sep_index + 1);
+    if (!parent_str) {
+        return path_create_empty();
+    }
+
+    memcpy(parent_str, p->data, last_sep_index);
+    parent_str[last_sep_index] = '\0';
+
+    path_t parent = path_create(parent_str);
+    free(parent_str);
+
+    return parent;
 }
 
 
@@ -191,6 +233,7 @@ path_t path_absolute(const path_t* p) {
 
     if (resolved_str != NULL) {
         string_assign(&path, resolved_str);
+        path_remove_trailing_slashes(&path);
         free(resolved_str);
     }
 
@@ -603,35 +646,43 @@ Read path_read_bytes(const path_t* path) {
 }
 
 
-string_t path_read_text(const path_t* file_path) {
-    string_t str = string_new();
-
-    if (!file_path || !file_path->data) {
-        return str;
+string_t path_read_text(const path_t* path) {
+    // Initialize an empty string_t to return in case of failure
+    string_t result = string_new();
+    
+    // Open the file in binary read mode ("rb") to get accurate byte counts
+    FILE *file = fopen(string_cstr(path), "rb");
+    if (file == NULL) {
+        return result; 
     }
 
-    /* Open in text mode */
-    FILE* f = fopen(file_path->data, "r");
-    if (!f) {
-        fprintf(stderr, "[Error] Cannot open file for text reading: %s\n", file_path->data);
-        return str;
+    // Seek to the end of the file to determine its total size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file); // Reset the file pointer back to the beginning
+
+    // Handle potential ftell errors or empty files
+    if (file_size <= 0) {
+        fclose(file);
+        return result;
     }
 
-    char buffer[4096];
-    
-    /* * Read the file in chunks. 
-     * We read sizeof(buffer) - 1 to guarantee space for a temporary null terminator 
-     * if cstring_append requires it, though fread doesn't append '\0' naturally.
-     */
-    size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer) - 1, f)) > 0) {
-        buffer[bytes_read] = '\0'; /* Temporarily terminate the chunk */
-        string_append(&str, buffer);
+    // Allocate memory for the file content plus the null-terminator
+    char *buffer = (char *)malloc((size_t)file_size + 1);
+    if (buffer == NULL) {
+        fclose(file);
+        return result;
     }
-    
-    fclose(f);
-    
-    return str;
+
+    // Read the entire file into the buffer
+    size_t bytes_read = fread(buffer, 1, (size_t)file_size, file);
+    buffer[bytes_read] = '\0';
+
+    fclose(file);
+
+    string_assign(&result, buffer);
+
+    return result;
 }
 
 

@@ -37,11 +37,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "introsort.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /* ---------- cabecalho interno (fica antes dos dados) ---------- */
 typedef struct {
@@ -86,6 +84,19 @@ static inline void *vec__grow(void *arr, size_t min_capacity, size_t elem_size) 
 
     new_hdr->capacity = new_cap;
     return (void *)(new_hdr + 1);
+}
+
+/* ---------- internal helper for vec_contains ---------- */
+static inline bool vec__contains_impl(const void *arr, size_t len, size_t elem_size, const void *target, int (*cmp)(const void *, const void *)) {
+    if (!arr || len == 0) return false;
+    
+    const char *ptr = (const char *)arr;
+    for (size_t i = 0; i < len; i++) {
+        if (cmp(ptr + (i * elem_size), target) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /* ================= API ================= */
@@ -262,8 +273,53 @@ static inline void *vec__grow(void *arr, size_t min_capacity, size_t elem_size) 
 #define vec_foreach(type, item, v) \
     for (type *item = (v); item < (v) + vec_len(v); item++)
 
-#ifdef __cplusplus
-}
-#endif
+/* checks if the vector contains a specific item using a custom comparison function.
+ * the sort/cmp function must match the standard qsort signature: int (*)(const void*, const void*)
+ * returns true if the item is found, false otherwise.
+ * note: 'item' must be an lvalue (e.g., a variable) since we take its address under the hood. */
+#define vec_contains(v, item, cmp_func) \
+    (vec_len(v) > 0 ? vec__contains_impl((v), vec_len(v), sizeof(*(v)), &(item), (cmp_func)) : false)
+
+
+/* filters the vector in-place in O(N) time.
+ * the 'keep_func' must take a pointer to the element type and return a boolean 
+ * (true to keep the element, false to remove it).
+ * the vector capacity remains unchanged; only the length is reduced. */
+#define vec_filter(v, keep_func) \
+    do { \
+        if (v) { \
+            size_t _write_idx = 0; \
+            for (size_t _read_idx = 0; _read_idx < vec_len(v); _read_idx++) { \
+                if ((keep_func)(&(v)[_read_idx])) { \
+                    if (_write_idx != _read_idx) { \
+                        (v)[_write_idx] = (v)[_read_idx]; \
+                    } \
+                    _write_idx++; \
+                } \
+            } \
+            VEC__HDR(v)->length = _write_idx; \
+        } \
+    } while (0)
+
+
+/* inverte a ordem de todos os elementos do vetor in-place.
+ * funciona com qualquer tipo usando swap via memcpy seguro. */
+#define vec_reverse(v) \
+    do { \
+        if (v) { \
+            size_t _len = vec_len(v); \
+            if (_len > 1) { \
+                size_t _half = _len / 2; \
+                for (size_t _i = 0; _i < _half; _i++) { \
+                    size_t _j = _len - 1 - _i; \
+                    unsigned char _tmp[sizeof(*(v))]; \
+                    memcpy(_tmp, &(v)[_i], sizeof(*(v))); \
+                    memcpy(&(v)[_i], &(v)[_j], sizeof(*(v))); \
+                    memcpy(&(v)[_j], _tmp, sizeof(*(v))); \
+                } \
+            } \
+        } \
+    } while (0)
+
 
 #endif /* VECTOR_H */

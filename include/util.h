@@ -1,26 +1,9 @@
 #ifndef UTIL_H
 #define UTIL_H
 #include <stdbool.h>
+#include "structure/string_t.h"
 #include "structure/vector.h"
 #include "structure/path.h"
-
-/*
- * Parses the primary and secondary numbers from the filename.
- * Expected format: "path/to/file/XX_Y.webp" -> extracts XX and Y.
- */
-void extract_file_numbers(const char* filepath, int* primary, int* secondary);
-
-
-/*
- * Comparison function for qsort to sort CString items by their filename numbers.
- * Sorts ascendingly by the primary number, then by the secondary number.
- */
-bool compare_numbered_filenames(const void* a, const void* b);
-
-
-void sleep_ms(int milliseconds);
-
-char* size_t_to_string(size_t i);
 
 /* Safe min/max macros using compiler extensions (GCC/Clang).
  * Variables are evaluated only once, preventing side-effect bugs 
@@ -38,6 +21,22 @@ char* size_t_to_string(size_t i);
         __typeof__(b) _b = (b); \
         _a > _b ? _a : _b; \
     })
+
+/*
+ * Parses the primary and secondary numbers from the filename.
+ * Expected format: "path/to/file/XX_Y.webp" -> extracts XX and Y.
+ */
+void extract_file_numbers(const char* filepath, int* primary, int* secondary);
+
+
+/*
+ * Comparison function for qsort to sort CString items by their filename numbers.
+ * Sorts ascendingly by the primary number, then by the secondary number.
+ */
+bool compare_numbered_filenames(const void* a, const void* b);
+
+void sleep_ms(int milliseconds);
+
 
     
 #endif

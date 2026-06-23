@@ -35,6 +35,7 @@ typedef struct {
     const char* extension;
 } image_info_t;
 
+
 /* ---- leitura de inteiros com endianness explícita ---- */
 
 static inline uint16_t img__read_be16(const uint8_t *p) {

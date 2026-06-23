@@ -26,7 +26,7 @@
 #include "../include/structure/path.h"
 #include "../include/constants.h"
 #include "../include/globals.h"
-#include "../include/util.h"
+#include "../include/type_to_str.h"
 
 
 static bool is_webp(const path_t *path) {
@@ -109,6 +109,69 @@ static PixelBuffer load_non_webp(const path_t* path) {
 
 PixelBuffer load_img_from_disk(const path_t* path) {
     return is_webp(path) ? load_webp(path) : load_non_webp(path);
+}
+
+/* Helper function to convert the image format enum to a readable string */
+static const char* get_image_format_name(image_format_t format) {
+    switch (format) {
+        case IMAGE_FORMAT_PNG:  return "PNG";
+        case IMAGE_FORMAT_JPEG: return "JPEG";
+        case IMAGE_FORMAT_WEBP: return "WEBP";
+        case IMAGE_FORMAT_GIF:  return "GIF";
+        case IMAGE_FORMAT_UNKNOWN: 
+        default:                return "UNKNOWN";
+    }
+}
+
+
+/* Prints the contents of a PixelBuffer in a structured format */
+void print_pixel_buffer(const PixelBuffer* pb) {
+    if (!pb) {
+        printf("[PixelBuffer] Error: Pointer is NULL\n");
+        return;
+    }
+
+    printf("========================================\n");
+    printf(" PixelBuffer Dump\n");
+    printf("========================================\n");
+    
+    /* Print nested image_info_t struct */
+    printf(" [image_info_t]\n");
+    printf("   Status     : %s\n", pb->info.ok ? "OK" : "ERROR");
+    if (!pb->info.ok && pb->info.error) {
+        printf("   Error Msg  : %s\n", pb->info.error);
+    }
+    printf("   Format     : %s\n", get_image_format_name(pb->info.format));
+    if (pb->info.extension) {
+        printf("   Extension  : %s\n", pb->info.extension);
+    }
+    printf("   Dimensions : %u x %u\n", pb->info.width, pb->info.height);
+    printf("----------------------------------------\n");
+
+    /* Print PixelBuffer specific fields */
+    printf(" [Buffer Metadata]\n");
+    printf("   Dimensions : %d x %d\n", pb->w, pb->h);
+    printf("   Channels   : %d (in) / %d (out)\n", pb->ch, pb->out_ch);
+    printf("   Data Size  : %zu bytes\n", pb->num_bytes);
+    printf("   Data Ptr   : %p\n", (void*)pb->data);
+    printf("----------------------------------------\n");
+
+    /* Print a hex preview of the first 16 bytes to help debugging */
+    printf(" [Data Preview (up to 16 bytes)]\n   ");
+    if (pb->data && pb->num_bytes > 0) {
+        size_t preview_size = pb->num_bytes < 16 ? pb->num_bytes : 16;
+        for (size_t i = 0; i < preview_size; i++) {
+            printf("%02X ", pb->data[i]);
+            
+            /* Add a space halfway through for better readability */
+            if (i == 7) printf(" "); 
+        }
+        printf("\n");
+    } else {
+        printf("(Buffer is empty or NULL)\n");
+    }
+    
+    printf("========================================\n");
 }
 
 
