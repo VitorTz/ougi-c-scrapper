@@ -7,26 +7,10 @@
 #include "../include/image.h"
 #include "../include/structure/vector.h"
 #include "../include/structure/string_t.h"
+#include "../include/types.h"
 #include "../include/util.h"
 
 
-typedef struct HSV {
-  float h; // [0, 360)
-  float s; // [0, 1]
-  float v; // [0, 1]
-} HSV;
-
-typedef struct XYZ {
-  float x;
-  float y;
-  float z;
-} XYZ;
-
-typedef struct LAB {
-  float l;
-  float a;
-  float b;
-} LAB;
 
 typedef struct {
     LAB centroid;
@@ -45,24 +29,6 @@ static string_t rgb_to_hex(const RGB rgb) {
     string_append(&str, hex_buf);
     return str;
 }
-
-
-static Color hex_to_color(const string_t* str) {
-    if (string_length(str)) {
-        return WHITE;
-    }
-
-    const char* buffer = str->data + 1;
-    const unsigned long hex_val = strtoul(buffer, NULL, 16);
-
-    return (Color){
-        .r = (unsigned char)((hex_val >> 16) & 0xFF),
-        .g = (unsigned char)((hex_val >> 8) & 0xFF),
-        .b = (unsigned char)(hex_val & 0xFF),
-        .a = 255
-    };
-}
-
 
 static HSV rgb_to_hsv(const float r, const float g, const float b) {
     const float cmax = MAX(r, MAX(g, b));

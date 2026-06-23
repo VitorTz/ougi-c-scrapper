@@ -7,3 +7,4 @@ res/*-test
 res/source.json
 tmp/
 include/env.h
+cookies.txt

@@ -3,6 +3,9 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <raylib.h>
+#include "structure/string_t.h"
+
 
 /* --- Integer Types --- */
 char* size_t_to_string(const size_t i);
@@ -24,5 +27,8 @@ char* bool_to_string(const bool b);
 
 /* --- Pointer Types --- */
 char* pointer_to_string(const void* ptr);
+
+/* ---     Color     ---*/
+Color hex_to_color(const string_t* str);
 
 #endif /* TYPE_TO_STR_H */

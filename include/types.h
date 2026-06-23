@@ -16,6 +16,24 @@ typedef struct RGB {
   uint8_t r, g, b;
 } RGB;
 
+typedef struct HSV {
+  float h; // [0, 360)
+  float s; // [0, 1]
+  float v; // [0, 1]
+} HSV;
+
+typedef struct XYZ {
+  float x;
+  float y;
+  float z;
+} XYZ;
+
+typedef struct LAB {
+  float l;
+  float a;
+  float b;
+} LAB;
+
 
 typedef struct {
   size_t bytes;

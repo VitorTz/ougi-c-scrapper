@@ -26,7 +26,7 @@
 #include "../include/structure/path.h"
 #include "../include/constants.h"
 #include "../include/globals.h"
-#include "../include/type_to_str.h"
+#include "../include/convert.h"
 
 
 static bool is_webp(const path_t *path) {

@@ -1,5 +1,6 @@
-#include "../include/type_to_str.h"
+#include "../include/convert.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 
 static char buffer[256];
@@ -82,4 +83,21 @@ char* pointer_to_string(const void* ptr) {
     // %p prints the memory address (usually in hex)
     snprintf(buffer, sizeof(buffer), "%p", ptr);
     return buffer;
+}
+
+
+Color hex_to_color(const string_t* str) {
+    if (string_length(str)) {
+        return WHITE;
+    }
+
+    const char* buffer = str->data + 1;
+    const unsigned long hex_val = strtoul(buffer, NULL, 16);
+
+    return (Color){
+        .r = (unsigned char)((hex_val >> 16) & 0xFF),
+        .g = (unsigned char)((hex_val >> 8) & 0xFF),
+        .b = (unsigned char)(hex_val & 0xFF),
+        .a = 255
+    };
 }
