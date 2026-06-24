@@ -10,6 +10,7 @@ typedef struct {
 } TextureMapItem;
 
 bool is_initialized = false;
+
 TextureMapItem* map = NULL;
 
 

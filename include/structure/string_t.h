@@ -113,7 +113,7 @@ void string_to_upper(string_t *s);     /* in-place, ASCII (via toupper) */
 void string_to_lower(string_t *s);     /* in-place, ASCII (via tolower) */
 void string_strip_char(string_t *str, char c); // Helper function to trim a specific character from both ends
 void string_remove_accents_and_non_ascii(string_t *str);
-string_t string_slugify(string_t* str);
+string_t string_slugify(const string_t* str);
 void string_normalize(string_t *str);
 
 /* ---------- operacoes ---------- */
@@ -133,6 +133,8 @@ size_t string_rfind(const string_t *s, const char *needle);
 int string_starts_with(const string_t *s, const char *prefix);
 int string_ends_with(const string_t *s, const char *suffix);
 int string_contains(const string_t *s, const char *needle);
+
+void string_vec_free(string_t* vec);
 
 /* ---------- split (sem equivalente direto no std::string) ----------
  * Retorna um vetor (do vector.h) de string_t, separando 's' pelo

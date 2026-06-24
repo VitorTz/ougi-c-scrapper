@@ -383,11 +383,10 @@ void string_normalize(string_t *str) {
     string_trim(str);
 }
 
-string_t string_slugify(string_t* str) {
+string_t string_slugify(const string_t* str) {
     // Return an empty string_t if input is invalid
     if (!str || !str->data) {
-        string_t empty = { NULL, 0, 0 };
-        return empty;
+        return string_new();
     }
 
     // Clone the initial string to mimic C++ pass-by-value semantics
@@ -560,6 +559,14 @@ void string_array_free(string_t **arr) {
     size_t n = vec_len(*arr);
     for (size_t i = 0; i < n; i++) string_free(&(*arr)[i]);
     vec_free(*arr);
+}
+
+
+void string_vec_free(string_t* vec) {
+    vec_foreach(string_t, str, vec) {
+        string_free(str);
+    }
+    vec_free(vec);
 }
 
 
